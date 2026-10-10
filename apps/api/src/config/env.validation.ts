@@ -4,6 +4,10 @@ const booleanish = z
   .union([z.boolean(), z.string()])
   .transform((value) => (typeof value === 'boolean' ? value : ['true', '1', 'yes'].includes(value.toLowerCase())));
 
+/** Values pasted into hosting dashboards often keep the quotes or spaces from an .env file. */
+const unquote = (value: unknown) => (typeof value === 'string' ? value.trim().replace(/^(['"])(.*)\1$/, '$2').trim() : value);
+const cleanString = z.preprocess(unquote, z.string().optional());
+
 const durationPattern = /^\d+(ms|s|m|h|d)?$/;
 
 /**
@@ -46,13 +50,14 @@ export const envSchema = z.object({
   LOGIN_LOCKOUT_MINUTES: z.coerce.number().int().positive().default(15),
 
   /** Outgoing mail (invitations, password resets). Leave SMTP_HOST empty to log emails instead of sending them. */
-  SMTP_HOST: z.string().optional(),
-  SMTP_PORT: z.coerce.number().int().positive().default(587),
-  /** true for implicit TLS (port 465); STARTTLS is used otherwise when the server offers it. */
-  SMTP_SECURE: booleanish.default(false),
-  SMTP_USER: z.string().optional(),
-  SMTP_PASS: z.string().optional(),
-  MAIL_FROM: z.string().optional(),
+  SMTP_HOST: cleanString,
+  SMTP_PORT: z.preprocess((value) => (unquote(value) === '' ? undefined : unquote(value)), z.coerce.number().int().positive().default(587)),
+  /** true for implicit TLS (port 465), false for STARTTLS (587). Defaults from the port when left empty. */
+  SMTP_SECURE: z.preprocess((value) => (unquote(value) === '' ? undefined : unquote(value)), booleanish.optional()),
+  SMTP_USER: cleanString,
+  /** Spaces are removed: Gmail shows App Passwords in groups of four ("abcd efgh ijkl mnop"). */
+  SMTP_PASS: z.preprocess((value) => (typeof value === 'string' ? (unquote(value) as string).replace(/\s+/g, '') : value), z.string().optional()),
+  MAIL_FROM: cleanString,
   INVITE_EXPIRES_HOURS: z.coerce.number().int().positive().default(72),
   PASSWORD_RESET_EXPIRES_MINUTES: z.coerce.number().int().positive().default(60),
 

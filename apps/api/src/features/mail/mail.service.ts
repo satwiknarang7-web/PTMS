@@ -31,6 +31,10 @@ export class MailService {
           port: mail.port,
           secure: mail.secure,
           auth: mail.user ? { user: mail.user, pass: mail.pass } : undefined,
+          // Serverless functions are stopped after ~10 s, so fail fast with a clear reason instead.
+          connectionTimeout: 8_000,
+          greetingTimeout: 8_000,
+          socketTimeout: 8_000,
         })
       : null;
   }
@@ -72,7 +76,50 @@ export class MailService {
       await this.transporter.sendMail({ from: this.config.get('mail', { infer: true }).from, to: message.to, subject: message.subject, text, html });
     } catch (error) {
       this.logger.error(`Could not send email to ${message.to}: ${error}`);
-      throw new ServiceUnavailableException('The email could not be sent. Check the SMTP settings and try again.');
+      throw new ServiceUnavailableException(`The email could not be sent. ${this.explain(error)}`);
     }
+  }
+
+  /** Non-secret view of the settings, for the platform console. */
+  settings() {
+    const mail = this.config.get('mail', { infer: true });
+    return { configured: this.isConfigured, host: mail.host ?? null, port: mail.port, secure: mail.secure, user: mail.user ?? null, from: mail.from, passwordSet: !!mail.pass };
+  }
+
+  /** Sends a test message; the error, if any, says which setting to fix. */
+  async sendTest(to: string): Promise<void> {
+    const appName = this.config.get('app', { infer: true }).name;
+    if (!this.transporter) {
+      throw new ServiceUnavailableException('SMTP is not configured: set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS and MAIL_FROM on the server, then redeploy.');
+    }
+    await this.send({
+      to,
+      subject: `${appName}: test email`,
+      paragraphs: [`This is a test email from ${appName}.`, 'If you can read it, invitations and password reset emails will be delivered.'],
+    });
+  }
+
+  /** Turns SMTP failures into the setting that needs fixing. */
+  private explain(error: unknown): string {
+    const err = error as { code?: string; responseCode?: number; message?: string };
+    const mail = this.config.get('mail', { infer: true });
+    const where = `${mail.host}:${mail.port}`;
+    const detail = err.message ? ` (${err.message.split('\n')[0].slice(0, 160)})` : '';
+    if (err.code === 'EAUTH' || err.responseCode === 535 || err.responseCode === 534) {
+      return `The mail server rejected the sign-in: check SMTP_USER and SMTP_PASS. Gmail and Google Workspace need an App Password, not the normal password.${detail}`;
+    }
+    if (err.code === 'EDNS' || /ENOTFOUND|EAI_AGAIN/.test(err.message ?? '')) {
+      return `The mail server ${mail.host} could not be found: check SMTP_HOST (no quotes or spaces).${detail}`;
+    }
+    if (err.code === 'ETIMEDOUT' || err.code === 'ECONNECTION' || err.code === 'ESOCKET' || err.code === 'ECONNREFUSED') {
+      if (/wrong version number|ssl3_get_record|tls/i.test(err.message ?? '')) {
+        return `TLS does not match the port: use port 587 with SMTP_SECURE=false, or port 465 with SMTP_SECURE=true.${detail}`;
+      }
+      return `Could not connect to ${where}: check SMTP_HOST and SMTP_PORT (587 or 465).${detail}`;
+    }
+    if (err.code === 'EENVELOPE' || err.responseCode === 550 || err.responseCode === 553 || err.responseCode === 554) {
+      return `The mail server refused the sender or recipient: MAIL_FROM must be an address SMTP_USER is allowed to send from.${detail}`;
+    }
+    return `Check the SMTP settings.${detail}`;
   }
 }

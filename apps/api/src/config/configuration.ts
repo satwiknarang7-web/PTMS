@@ -56,7 +56,7 @@ const buildConfiguration = () => {
     mail: {
       host: env.SMTP_HOST || undefined,
       port: env.SMTP_PORT,
-      secure: env.SMTP_SECURE,
+      secure: env.SMTP_SECURE ?? env.SMTP_PORT === 465,
       user: env.SMTP_USER || undefined,
       pass: env.SMTP_PASS || undefined,
       from: env.MAIL_FROM || env.SMTP_USER || `${env.APP_NAME} <no-reply@localhost>`,
