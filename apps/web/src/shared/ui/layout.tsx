@@ -55,7 +55,7 @@ export function LinkTabs({ items, className, maxVisible }: { items: TabItem[]; c
   const activeOverflow = overflow.find(isActive);
   return (
     <div className={cn('flex items-center gap-1 border-b border-border', className)}>
-      <nav className="scrollbar-none flex min-w-0 gap-1 overflow-x-auto overflow-y-hidden [scrollbar-width:none]">
+      <nav className="scrollbar-none flex min-w-0 gap-0.5 overflow-x-auto overflow-y-hidden [scrollbar-width:none] max-sm:pr-4 max-sm:[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] sm:gap-1">
         {visible.map((item) => (
           <TabLink key={item.href} item={item} active={isActive(item)} />
         ))}
@@ -69,7 +69,7 @@ export function LinkTabs({ items, className, maxVisible }: { items: TabItem[]; c
               type="button"
               onClick={toggle}
               aria-expanded={open}
-              className="inline-flex shrink-0 items-center gap-1.5 px-3 py-2.5 text-sm font-medium text-muted transition-colors hover:text-foreground"
+              className="inline-flex shrink-0 items-center gap-1.5 px-2.5 py-2.5 text-sm font-medium text-muted transition-colors hover:text-foreground sm:px-3"
             >
               More <ChevronDown className={cn('size-3.5 transition-transform', open && 'rotate-180')} />
             </button>
@@ -104,7 +104,7 @@ function TabLink({ item, active }: { item: TabItem; active: boolean }) {
       href={item.href}
       aria-current={active ? 'page' : undefined}
       className={cn(
-        'relative inline-flex shrink-0 items-center gap-2 px-3 py-2.5 text-sm font-medium transition-colors [&_svg]:size-4',
+        'relative inline-flex shrink-0 items-center gap-1.5 px-2.5 py-2.5 text-sm font-medium transition-colors [&_svg]:size-4 sm:gap-2 sm:px-3',
         active ? 'text-foreground' : 'text-muted hover:text-foreground',
       )}
     >
@@ -129,7 +129,7 @@ export function Tabs<T extends string>({ value, onChange, items, className }: { 
             aria-selected={active}
             onClick={() => onChange(item.value)}
             className={cn(
-              'relative inline-flex shrink-0 items-center gap-2 px-3 py-2.5 text-sm font-medium transition-colors [&_svg]:size-4',
+              'relative inline-flex shrink-0 items-center gap-1.5 px-2.5 py-2.5 text-sm font-medium transition-colors [&_svg]:size-4 sm:gap-2 sm:px-3',
               active ? 'text-foreground' : 'text-muted hover:text-foreground',
             )}
           >

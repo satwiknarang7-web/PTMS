@@ -205,11 +205,13 @@ export function TaskCalendar({ query, canEdit, showProject, meetings: meetingSco
           </div>
         )}
         <div className="scrollbar-thin overflow-x-auto">
-          <div className="min-w-[720px]">
+          {/* Phones get a compact month (dots, tap a day for its list); larger screens the full grid. */}
+          <div className="sm:min-w-[720px]">
             <div className="grid grid-cols-7 border-b border-border bg-surface-muted/50">
               {weekdayLabels(weekStartsOn).map((label) => (
-                <div key={label} className="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-muted">
-                  {label}
+                <div key={label} className="px-1 py-2 text-center text-xs font-semibold uppercase tracking-wide text-muted sm:px-2 sm:text-left">
+                  <span className="sm:hidden">{label.slice(0, 1)}</span>
+                  <span className="max-sm:hidden">{label}</span>
                 </div>
               ))}
             </div>
@@ -232,24 +234,31 @@ export function TaskCalendar({ query, canEdit, showProject, meetings: meetingSco
                     onDragLeave={() => setDropTarget((current) => (current === day ? null : current))}
                     onDrop={(event) => onDrop(event, day)}
                     className={cn(
-                      'group/day min-h-28 border-b border-r border-border p-1.5 transition-colors [&:nth-child(7n)]:border-r-0',
+                      'group/day relative min-h-14 border-b border-r border-border p-1 transition-colors sm:min-h-28 sm:p-1.5 [&:nth-child(7n)]:border-r-0',
                       !inMonth && 'bg-surface-muted/40',
                       dropTarget === day && 'bg-brand-soft',
                     )}
                   >
-                    <div className="mb-1 flex items-center justify-between">
+                    {/* Phones: the whole day is one tap target. */}
+                    <button
+                      type="button"
+                      aria-label={total ? `${total} items on ${day}` : canSchedule ? `Schedule a meeting on ${day}` : day}
+                      onClick={() => (total ? setExpandedDay(day) : canSchedule ? setScheduling(day) : undefined)}
+                      className="absolute inset-0 sm:hidden"
+                    />
+                    <div className="mb-1 flex items-center justify-center sm:justify-between">
                       {canSchedule ? (
                         <button
                           type="button"
                           aria-label="Schedule a meeting on this day"
                           title="Schedule a meeting"
                           onClick={() => setScheduling(day)}
-                          className="flex size-6 items-center justify-center rounded-full text-muted opacity-0 transition hover:bg-surface-muted hover:text-foreground focus:opacity-100 group-hover/day:opacity-100"
+                          className="flex size-6 items-center justify-center rounded-full text-muted opacity-0 transition hover:bg-surface-muted hover:text-foreground focus:opacity-100 group-hover/day:opacity-100 max-sm:hidden"
                         >
                           <Plus className="size-3.5" />
                         </button>
                       ) : (
-                        <span />
+                        <span className="max-sm:hidden" />
                       )}
                       <span
                         className={cn(
@@ -260,7 +269,18 @@ export function TaskCalendar({ query, canEdit, showProject, meetings: meetingSco
                         {Number(day.slice(8))}
                       </span>
                     </div>
-                    <div className="space-y-1">
+                    {total > 0 && (
+                      <div className="flex flex-wrap justify-center gap-0.5 sm:hidden" aria-hidden>
+                        {meetingsToday.slice(0, 3).map((meeting) => (
+                          <span key={meeting.id} className="size-1.5 rounded-full bg-brand" />
+                        ))}
+                        {items.slice(0, Math.max(0, 3 - Math.min(meetingsToday.length, 3))).map((task) => (
+                          <span key={task.id} className="size-1.5 rounded-full bg-foreground-soft" />
+                        ))}
+                        {total > 3 && <span className="text-[9px] leading-none text-muted">+{total - 3}</span>}
+                      </div>
+                    )}
+                    <div className="space-y-1 max-sm:hidden">
                       {meetingsToday.slice(0, meetingSlots).map((meeting) => (
                         <MeetingChip key={meeting.id} meeting={meeting} onOpen={() => setOpenMeeting(meeting)} />
                       ))}

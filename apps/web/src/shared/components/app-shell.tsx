@@ -118,7 +118,11 @@ export function AppShell({ children, variant = 'tenant' }: { children: ReactNode
           >
             <Menu className="size-5" />
           </button>
-          <div className="flex min-w-0 flex-1 items-center">{!platform && <GlobalSearch />}</div>
+          {/* The sidebar (and its logo) is hidden on small screens. */}
+          <Link href={platform ? routes.platform : routes.home} aria-label={`${appConfig.name} home`} className="shrink-0 lg:hidden">
+            <BrandLogo compact className="[&_img]:h-7 [&_img]:max-w-[6.5rem]" />
+          </Link>
+          <div className="flex min-w-0 flex-1 items-center justify-end sm:justify-start">{!platform && <GlobalSearch />}</div>
           <div className="flex items-center gap-1">
             {!platform && <NotificationBell />}
             <div className="mx-1.5 hidden h-6 w-px bg-border sm:block" />
@@ -153,7 +157,7 @@ function Sidebar({ user, pathname, navigation, workspace, tenant, onClose, colla
     <div data-sidebar-panel className="flex h-full flex-col border-r border-sidebar-border bg-sidebar">
       <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-sidebar-border px-4 collapsed:justify-center collapsed:px-0">
         <Link href={navigation[0].items[0].href} aria-label={`${appConfig.name} home`} className="min-w-0 text-sidebar-heading collapsed:hidden">
-          <BrandLogo className="flex-col items-start gap-1 [&_img]:h-5 [&>span]:text-[11px] [&>span]:uppercase [&>span]:tracking-wider [&>span]:opacity-70" />
+          <BrandLogo className="flex-col items-start gap-1 [&_img]:h-8 [&_img]:max-w-[9.5rem] [&>span]:text-[10px] [&>span]:leading-none [&>span]:font-medium [&>span]:uppercase [&>span]:tracking-[0.14em] [&>span]:opacity-70" />
         </Link>
         {onToggleCollapse && (
           <button

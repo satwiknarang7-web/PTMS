@@ -36,14 +36,14 @@ export function ProfileView() {
         <Card>
           <CardBody className="flex flex-wrap items-center gap-4">
             <Avatar user={user} size="lg" />
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 basis-40">
               <p className="flex flex-wrap items-center gap-2 font-semibold">
                 {user.firstName} {user.lastName}
                 <Badge tone="brand">{roleLabel(user.role)}</Badge>
               </p>
               <p className="truncate text-sm text-muted">{user.email}</p>
             </div>
-            <p className="text-xs text-muted">Member since {formatDateTime(user.createdAt)}</p>
+            <p className="w-full text-xs text-muted sm:w-auto">Member since {formatDateTime(user.createdAt)}</p>
           </CardBody>
         </Card>
         <div className="space-y-4">

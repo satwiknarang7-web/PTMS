@@ -34,9 +34,10 @@ export function KpiStrip({ items, className }: { items: KpiItem[]; className?: s
       <dl className={cn('-mb-px -mr-px grid', cols)}>
         {items.map((item) => (
           <div key={item.label} className="min-w-0 border-b border-r border-border px-[var(--card-p)] py-3">
-            <dt className="flex items-center gap-1.5 truncate text-xs font-medium text-muted">
-              {item.icon && <span className={cn('shrink-0 [&_svg]:size-3.5', tones[item.tone ?? 'brand'])}>{item.icon}</span>}
-              {item.label}
+            {/* Narrow columns on phones: the label wraps instead of being cut off. */}
+            <dt className="flex items-start gap-1.5 text-xs font-medium leading-snug text-muted sm:items-center">
+              {item.icon && <span className={cn('mt-px shrink-0 [&_svg]:size-3.5 sm:mt-0', tones[item.tone ?? 'brand'])}>{item.icon}</span>}
+              <span className="min-w-0 break-words sm:truncate">{item.label}</span>
             </dt>
             <dd className="mt-1 flex min-w-0 flex-wrap items-baseline gap-x-2">
               <span className="text-xl font-semibold tabular-nums tracking-tight text-foreground">{item.value}</span>
