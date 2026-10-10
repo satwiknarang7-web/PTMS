@@ -9,6 +9,7 @@ coverage/
 .env.*.local
 *.db
 *.db-journal
+!apps/api/prisma/seed.db
 .DS_Store
 .turbo/
 *.tsbuildinfo

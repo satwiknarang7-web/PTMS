@@ -41,9 +41,10 @@ async function bootstrap() {
     SwaggerModule.setup(`${appConfig.apiPrefix}/docs`, app, document);
   }
 
-  await app.listen(appConfig.port);
+  const port = process.env.PORT ? Number(process.env.PORT) : appConfig.port;
+  await app.listen(port);
   const logger = new Logger('Bootstrap');
-  logger.log(`${appConfig.name} API listening on http://localhost:${appConfig.port}/${appConfig.apiPrefix}`);
+  logger.log(`${appConfig.name} API listening on port ${port} (${appConfig.apiPrefix})`);
   if (appConfig.swaggerEnabled) {
     logger.log(`API docs available at http://localhost:${appConfig.port}/${appConfig.apiPrefix}/docs`);
   }

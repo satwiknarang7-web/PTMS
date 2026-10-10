@@ -4,7 +4,7 @@
   "private": true,
   "description": "SegueIT Projects REST API (NestJS)",
   "scripts": {
-    "build": "nest build",
+    "build": "nest build && node scripts/copy-seed-db.js",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main",
