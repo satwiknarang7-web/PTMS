@@ -15,7 +15,7 @@ import { cn, compact, fullName, toInputDate } from '@/shared/lib/utils';
 import { Button } from '@/shared/ui/button';
 import { Field, Input, Select, Textarea } from '@/shared/ui/form';
 import { Modal } from '@/shared/ui/modal';
-import { useCreateProject, useUpdateProject } from '../api';
+import { useCreateProject, useMemberCandidates, useUpdateProject } from '../api';
 import type { Project, ProjectInput } from '../types';
 
 const schema = z
@@ -63,6 +63,8 @@ export function ProjectFormModal({ open, onClose, project, onSaved }: Props) {
   const create = useCreateProject();
   const update = useUpdateProject(project?.id ?? '');
   const { data: users } = useActiveUsers();
+  // Team members may also include root admins, who belong to no organization.
+  const { data: candidates } = useMemberCandidates(undefined, open && !isEdit);
   const { data: session } = useSession();
   // The root account is not a member of the organization, so it must assign an owner.
   const ownerRequired = session?.role === PLATFORM_ROOT_ROLE;
@@ -204,7 +206,7 @@ export function ProjectFormModal({ open, onClose, project, onSaved }: Props) {
             <Controller
               control={form.control}
               name="memberIds"
-              render={({ field }) => <UserMultiSelect options={users?.data ?? []} value={field.value} onChange={field.onChange} />}
+              render={({ field }) => <UserMultiSelect options={candidates ?? users?.data ?? []} value={field.value} onChange={field.onChange} />}
             />
           </Field>
         )}

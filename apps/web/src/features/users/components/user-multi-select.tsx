@@ -5,6 +5,7 @@ import { useId, useMemo, useState } from 'react';
 import { cn, fullName } from '@/shared/lib/utils';
 import type { UserSummary } from '@/shared/types/api';
 import { Avatar } from '@/shared/ui/avatar';
+import { Button } from '@/shared/ui/button';
 import { Dropdown } from '@/shared/ui/dropdown';
 import { Input, useFieldId } from '@/shared/ui/form';
 
@@ -31,7 +32,8 @@ export function UserMultiSelect({ options, value, onChange, placeholder = 'Selec
   return (
     <Dropdown
       align="left"
-      className="w-full min-w-72 p-0"
+      matchTriggerWidth
+      className="min-w-64 p-0"
       trigger={({ toggle: toggleOpen }) => (
         <button
           type="button"
@@ -61,7 +63,7 @@ export function UserMultiSelect({ options, value, onChange, placeholder = 'Selec
         </button>
       )}
     >
-      {() => (
+      {(close) => (
         <div>
           <div className="border-b border-border p-2">
             <Input id={searchId} aria-label="Search people" autoFocus placeholder="Search people" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -86,6 +88,12 @@ export function UserMultiSelect({ options, value, onChange, placeholder = 'Selec
                 </button>
               );
             })}
+          </div>
+          <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2">
+            <span className="text-xs text-muted">{value.length ? `${value.length} selected` : 'Nobody selected'}</span>
+            <Button size="sm" onClick={close}>
+              Done
+            </Button>
           </div>
         </div>
       )}

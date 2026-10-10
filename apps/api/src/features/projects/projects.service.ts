@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ActivityAction, EntityType, LookupType, NotificationType, StatusCategory } from '../../common/constants/domain.constants';
-import { isRoot, ProjectRole } from '../../common/constants/roles.constants';
+import { isRoot, PlatformRole, ProjectRole } from '../../common/constants/roles.constants';
 import { NotificationLinks } from '../../common/events/domain-events';
 import { EventPublisher } from '../../common/events/event-publisher.service';
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
@@ -267,6 +267,16 @@ export class ProjectsService {
     return this.members(user, projectId);
   }
 
+  /** Everyone who could still be added to the project: active members of the organization and root admins. */
+  async memberCandidates(user: AuthenticatedUser, projectId?: string) {
+    if (projectId) await this.access.assertCanManageWritable(user, projectId);
+    return this.prisma.user.findMany({
+      where: { ...this.projectEligible(user.organizationId), ...(projectId ? { memberships: { none: { projectId } } } : {}) },
+      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+      select: { ...USER_SUMMARY_SELECT, role: true },
+    });
+  }
+
   async removeMember(user: AuthenticatedUser, projectId: string, userId: string): Promise<void> {
     const { project } = await this.access.assertCanManageWritable(user, projectId);
     if (userId === project.ownerId) {
@@ -340,9 +350,14 @@ export class ProjectsService {
     return member;
   }
 
+  /** Active people of the organization plus root admins (who belong to no organization but can join its projects). */
+  private projectEligible(organizationId: string): Prisma.UserWhereInput {
+    return { isActive: true, OR: [{ organizationId }, { role: PlatformRole.ROOT }] };
+  }
+
   private async assertOrgUsers(organizationId: string, userIds: string[]): Promise<void> {
     const unique = [...new Set(userIds)];
-    const count = await this.prisma.user.count({ where: { id: { in: unique }, organizationId, isActive: true } });
+    const count = await this.prisma.user.count({ where: { id: { in: unique }, ...this.projectEligible(organizationId) } });
     if (count !== unique.length) throw new BadRequestException('One or more users are invalid or inactive');
   }
 

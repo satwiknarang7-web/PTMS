@@ -9,19 +9,22 @@ interface DropdownProps {
   children: (close: () => void) => ReactNode;
   align?: 'left' | 'right';
   className?: string;
+  /** Panel as wide as the trigger, which then fills its container (form pickers). */
+  matchTriggerWidth?: boolean;
 }
 
 /**
  * Accessible menu that closes on outside click / Escape. Rendered in a portal (see Popover),
  * so scrolling tables and cards with hidden overflow never cut it off.
  */
-export function Dropdown({ trigger, children, align = 'right', className }: DropdownProps) {
+export function Dropdown({ trigger, children, align = 'right', className, matchTriggerWidth }: DropdownProps) {
   return (
     <Popover
       align={align === 'right' ? 'end' : 'start'}
+      matchTriggerWidth={matchTriggerWidth}
       className={cn('min-w-52 max-w-[calc(100vw-1.5rem)] overflow-hidden p-1', className)}
       trigger={({ ref, open, toggle }) => (
-        <span ref={ref} className="inline-flex">
+        <span ref={ref} className={matchTriggerWidth ? 'flex w-full' : 'inline-flex'}>
           {trigger({ open, toggle })}
         </span>
       )}

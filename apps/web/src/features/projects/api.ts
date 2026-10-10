@@ -2,7 +2,7 @@
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/shared/lib/api-client';
-import type { Paginated } from '@/shared/types/api';
+import type { Paginated, UserSummary } from '@/shared/types/api';
 import type { Project, ProjectDashboard, ProjectDetail, ProjectInput, ProjectMember, ProjectNavItem, ProjectQuery, ProjectSummary } from './types';
 
 export const projectKeys = {
@@ -89,6 +89,15 @@ export function useDeleteProject() {
     meta: { successMessage: 'Project deleted' },
     // Mark stale without refetching: the deleted project's open queries would 404; lists refetch when next shown.
     onSuccess: () => queryClient.invalidateQueries({ queryKey: projectKeys.all, refetchType: 'none' }),
+  });
+}
+
+/** People who can join a project (or a new one, without `projectId`): organization members and root admins. */
+export function useMemberCandidates(projectId?: string, enabled = true) {
+  return useQuery({
+    queryKey: [...projectKeys.all, 'member-candidates', projectId ?? 'new'],
+    queryFn: () => api.get<UserSummary[]>(projectId ? `/projects/${projectId}/member-candidates` : '/projects/member-candidates'),
+    enabled,
   });
 }
 

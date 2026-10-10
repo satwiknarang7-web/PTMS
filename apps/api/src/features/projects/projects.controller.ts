@@ -51,6 +51,13 @@ export class ProjectsController {
     return this.projects.create(user, dto);
   }
 
+  /** People who can be put on a new project: active organization members and root admins. */
+  @Get('member-candidates')
+  @RequirePermissions(Permission.PROJECTS_CREATE)
+  newProjectMemberCandidates(@CurrentUser() user: AuthenticatedUser) {
+    return this.projects.memberCandidates(user);
+  }
+
   @Get(':id')
   findOne(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.projects.findOne(user, id);
@@ -70,6 +77,12 @@ export class ProjectsController {
   @Get(':id/members')
   members(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.projects.members(user, id);
+  }
+
+  /** People who can be added: active organization members and root admins. */
+  @Get(':id/member-candidates')
+  memberCandidates(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.projects.memberCandidates(user, id);
   }
 
   @Post(':id/members')

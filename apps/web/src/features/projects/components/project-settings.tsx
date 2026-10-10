@@ -4,7 +4,6 @@ import { Archive, ArchiveRestore, MoreHorizontal, Pencil, Trash2, UserPlus, X } 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
-import { useActiveUsers } from '@/features/users/api';
 import { UserMultiSelect } from '@/features/users/components/user-multi-select';
 import { routes } from '@/shared/config/routes';
 import { formatDate, fullName } from '@/shared/lib/utils';
@@ -17,7 +16,7 @@ import { Dropdown, DropdownItem, DropdownSeparator } from '@/shared/ui/dropdown'
 import { Spinner } from '@/shared/ui/feedback';
 import { Field, Input } from '@/shared/ui/form';
 import { ConfirmDialog, Modal } from '@/shared/ui/modal';
-import { useAddMembers, useDeleteProject, useProject, useProjectMembers, useRemoveMember, useUpdateProject } from '../api';
+import { useAddMembers, useDeleteProject, useMemberCandidates, useProject, useProjectMembers, useRemoveMember, useUpdateProject } from '../api';
 import { ProjectFormModal } from './project-form-modal';
 
 export function ProjectSettings({ projectId }: { projectId: string }) {
@@ -173,10 +172,11 @@ function Detail({ label, value }: { label: string; value: string }) {
 }
 
 function AddMembersModal({ projectId, open, onClose, existingIds }: { projectId: string; open: boolean; onClose: () => void; existingIds: string[] }) {
-  const { data: users } = useActiveUsers();
+  // Organization members and root admins who are not on the project yet.
+  const { data: users } = useMemberCandidates(projectId, open);
   const addMembers = useAddMembers(projectId);
   const [selected, setSelected] = useState<string[]>([]);
-  const candidates = useMemo(() => (users?.data ?? []).filter((u) => !existingIds.includes(u.id)), [users, existingIds]);
+  const candidates = useMemo(() => (users ?? []).filter((u) => !existingIds.includes(u.id)), [users, existingIds]);
 
   const close = () => {
     setSelected([]);
