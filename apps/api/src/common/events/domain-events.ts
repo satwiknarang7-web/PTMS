@@ -16,6 +16,7 @@ export interface ActivityRecordedEvent {
   summary: string;
   metadata?: Record<string, unknown>;
 }
+export const ActivityRecordedEvent = {};
 
 export type TaskChangeKind = 'created' | 'status_changed' | 'priority_changed' | 'assigned';
 
@@ -33,6 +34,7 @@ export interface TaskChangedEvent {
   /** How many automations led to this change; used to stop rule loops. */
   depth?: number;
 }
+export const TaskChangedEvent = {};
 
 export interface NotificationRequestedEvent {
   recipientIds: string[];
@@ -42,6 +44,7 @@ export interface NotificationRequestedEvent {
   body?: string;
   link?: string;
 }
+export const NotificationRequestedEvent = {};
 
 /** Client-side routes notifications deep-link to. */
 export const NotificationLinks = {
