@@ -52,9 +52,10 @@ export class CreateUserDto {
   @MaxLength(60)
   lastName: string;
 
-  @ApiProperty({ description: 'Initial password, the user can change it after signing in' })
+  @ApiPropertyOptional({ description: 'Initial password; leave out to email an invitation link instead' })
+  @IsOptional()
   @IsPassword()
-  password: string;
+  password?: string;
 
   @ApiProperty({ enum: ORG_ROLES })
   @IsIn(ORG_ROLES)

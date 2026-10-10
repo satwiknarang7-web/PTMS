@@ -1,7 +1,8 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowRight, Eye, EyeOff, Info, Lock, Mail } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, Lock, Mail } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -25,7 +26,6 @@ export function LoginForm() {
   const login = useLogin();
   const { data: config } = useAuthConfig();
   const [showPassword, setShowPassword] = useState(false);
-  const [showResetHelp, setShowResetHelp] = useState(false);
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: '', password: '', remember: false },
@@ -47,6 +47,7 @@ export function LoginForm() {
 
   return (
     <form onSubmit={onSubmit} className="space-y-5" noValidate>
+      {searchParams.get('reset') === '1' && !login.isError && <FormAlert tone="success">Your password is set. Sign in with it below.</FormAlert>}
       {login.isError && <FormAlert>{errorMessage(login.error)}</FormAlert>}
 
       <Field label="Work email" htmlFor="email" error={errors.email?.message}>
@@ -61,9 +62,9 @@ export function LoginForm() {
           <label htmlFor="password" className="text-[13px] font-medium text-foreground-soft">
             Password
           </label>
-          <button type="button" onClick={() => setShowResetHelp((v) => !v)} className="text-xs font-medium text-brand hover:underline" aria-expanded={showResetHelp}>
+          <Link href={routes.forgotPassword} className="text-xs font-medium text-brand hover:underline">
             Forgot password?
-          </button>
+          </Link>
         </div>
         <div className="relative">
           <Lock className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
@@ -86,12 +87,6 @@ export function LoginForm() {
           </button>
         </div>
         {errors.password && <p className="mt-1.5 text-xs text-danger">{errors.password.message}</p>}
-        {showResetHelp && (
-          <p className="mt-2 flex gap-2 rounded-ui bg-surface-muted px-3 py-2 text-xs text-foreground-soft animate-fade-in">
-            <Info className="mt-0.5 size-3.5 shrink-0 text-brand" />
-            Passwords are reset by your workspace administrator under Settings → Users. Ask them for a new temporary password.
-          </p>
-        )}
       </div>
 
       <Checkbox

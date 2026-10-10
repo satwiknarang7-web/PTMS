@@ -7,6 +7,7 @@ import { api } from '@/shared/lib/api-client';
 import type { Paginated } from '@/shared/types/api';
 import type {
   CreateOrganizationInput,
+  PlatformAdmin,
   PlatformOrganization,
   PlatformOrganizationDetail,
   PlatformOrganizationQuery,
@@ -18,6 +19,7 @@ export const platformKeys = {
   overview: ['platform', 'overview'] as const,
   organizations: (query: PlatformOrganizationQuery) => ['platform', 'organizations', query] as const,
   organization: (id: string) => ['platform', 'organization', id] as const,
+  admins: ['platform', 'admins'] as const,
 };
 
 export function usePlatformOverview() {
@@ -61,6 +63,45 @@ export function useAddCoordinator() {
       api.post<PlatformOrganizationDetail>(`/platform/organizations/${organizationId}/coordinators`, input),
     meta: { successMessage: 'Coordinator added' },
     onSuccess: invalidate,
+  });
+}
+
+export function useSendCoordinatorInvite() {
+  return useMutation({
+    mutationFn: ({ organizationId, userId }: { organizationId: string; userId: string }) =>
+      api.post<void>(`/platform/organizations/${organizationId}/coordinators/${userId}/invite`),
+    meta: { successMessage: 'Email sent' },
+  });
+}
+
+// ─── Root admins ─────────────────────────────────────────────
+
+export function usePlatformAdmins() {
+  return useQuery({ queryKey: platformKeys.admins, queryFn: () => api.get<PlatformAdmin[]>('/platform/admins') });
+}
+
+export function useCreatePlatformAdmin() {
+  const invalidate = useInvalidatePlatform();
+  return useMutation({
+    mutationFn: (input: CreateOrganizationInput['coordinator']) => api.post<PlatformAdmin>('/platform/admins', input),
+    meta: { successMessage: 'Root admin added' },
+    onSuccess: invalidate,
+  });
+}
+
+export function useUpdatePlatformAdmin() {
+  const invalidate = useInvalidatePlatform();
+  return useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) => api.patch<PlatformAdmin>(`/platform/admins/${id}`, { isActive }),
+    meta: { successMessage: 'Root admin updated' },
+    onSuccess: invalidate,
+  });
+}
+
+export function useSendPlatformAdminInvite() {
+  return useMutation({
+    mutationFn: (id: string) => api.post<void>(`/platform/admins/${id}/invite`),
+    meta: { successMessage: 'Email sent' },
   });
 }
 

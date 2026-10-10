@@ -2,6 +2,9 @@
 export const routes = {
   root: '/',
   login: '/login',
+  forgotPassword: '/forgot-password',
+  /** Opened from invitation and password reset emails (?token=…). */
+  resetPassword: '/reset-password',
   home: '/home',
   myWork: '/my-work',
   projects: '/projects',
@@ -32,9 +35,10 @@ export const routes = {
   profile: '/profile',
   platform: '/platform',
   platformOrganizations: '/platform/organizations',
+  platformAdmins: '/platform/admins',
   platformProfile: '/platform/profile',
   platformAppearance: '/platform/appearance',
 } as const;
 
 /** Routes reachable without a session. */
-export const PUBLIC_ROUTES = [routes.login];
+export const PUBLIC_ROUTES = [routes.login, routes.forgotPassword, routes.resetPassword];

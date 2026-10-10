@@ -30,7 +30,6 @@ ENV NODE_ENV=production \
     API_PREFIX=api \
     CORS_ORIGINS="" \
     SWAGGER_ENABLED=false \
-    DATABASE_URL="file:/data/segueit.db" \
     JWT_ACCESS_EXPIRES_IN=15m \
     JWT_REFRESH_EXPIRES_IN=7d \
     JWT_REFRESH_REMEMBER_EXPIRES_IN=30d \

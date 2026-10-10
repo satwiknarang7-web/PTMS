@@ -26,7 +26,8 @@ export interface CreateUserInput {
   email: string;
   firstName: string;
   lastName: string;
-  password: string;
+  /** Leave out to email an invitation link. */
+  password?: string;
   role: OrgRole;
   jobTitle?: string | null;
   hourlyRate?: number | null;

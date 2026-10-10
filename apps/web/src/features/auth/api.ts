@@ -14,7 +14,17 @@ export const authApi = {
   me: () => api.get<SessionUser>('/auth/me'),
   login: (input: LoginInput) => api.post<{ success: boolean }>('/auth/login', input, { skipAuthRefresh: true }),
   logout: () => api.post<void>('/auth/logout', undefined, { skipAuthRefresh: true }),
+  forgotPassword: (email: string) => api.post<void>('/auth/forgot-password', { email }, { skipAuthRefresh: true }),
+  verifyToken: (token: string) => api.post<LinkInfo>('/auth/verify-token', { token }, { skipAuthRefresh: true }),
+  resetPassword: (input: { token: string; password: string }) => api.post<void>('/auth/reset-password', input, { skipAuthRefresh: true }),
 };
+
+/** What an invitation or reset link is for, shown before the user chooses a password. */
+export interface LinkInfo {
+  purpose: 'INVITE' | 'PASSWORD_RESET';
+  email: string;
+  firstName: string;
+}
 
 export function useSession() {
   return useQuery({ queryKey: authKeys.session, queryFn: authApi.me, staleTime: 60_000, retry: false });

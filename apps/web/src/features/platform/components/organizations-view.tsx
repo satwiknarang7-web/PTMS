@@ -1,6 +1,6 @@
 'use client';
 
-import { Building2, LogIn, MoreHorizontal, Pause, Play, Plus, Search, Trash2, UserPlus } from 'lucide-react';
+import { Building2, LogIn, Mail, MoreHorizontal, Pause, Play, Plus, Search, Trash2, UserPlus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { appConfig } from '@/shared/config/env';
 import { useDebounce } from '@/shared/hooks/use-debounce';
@@ -20,6 +20,7 @@ import { ConfirmDialog, Drawer, Modal } from '@/shared/ui/modal';
 import { Table, Td, Th, Tr } from '@/shared/ui/table';
 import {
   useAddCoordinator,
+  useSendCoordinatorInvite,
   useCreateOrganization,
   useDeletePlatformOrganization,
   useEnterWorkspace,
@@ -140,6 +141,7 @@ function OrganizationDrawer({ organizationId, onClose }: { organizationId: strin
 function OrganizationDetails({ org, onDeleted }: { org: PlatformOrganizationDetail; onDeleted: () => void }) {
   const update = useUpdatePlatformOrganization();
   const remove = useDeletePlatformOrganization();
+  const invite = useSendCoordinatorInvite();
   const [name, setName] = useState(org.name);
   const [adding, setAdding] = useState(false);
   const [confirm, setConfirm] = useState<'suspend' | 'delete' | null>(null);
@@ -173,6 +175,18 @@ function OrganizationDetails({ org, onDeleted }: { org: PlatformOrganizationDeta
                 </span>
                 {!u.isActive && <Badge tone="danger">Inactive</Badge>}
                 <span className="hidden text-xs text-muted sm:block">Last sign-in {formatDateTime(u.lastLoginAt)}</span>
+                {u.isActive && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    title={u.lastLoginAt ? 'Email a link to set a new password' : 'Resend invitation email'}
+                    aria-label={u.lastLoginAt ? 'Email password link' : 'Resend invitation'}
+                    loading={invite.isPending && invite.variables?.userId === u.id}
+                    onClick={() => invite.mutate({ organizationId: org.id, userId: u.id })}
+                  >
+                    <Mail />
+                  </Button>
+                )}
               </li>
             ))}
           </ul>
@@ -283,11 +297,11 @@ function CreateOrganizationModal({ open, onClose, onCreated }: { open: boolean; 
   const set = (key: keyof typeof EMPTY_FORM) => (event: { target: { value: string } }) => setValues((v) => ({ ...v, [key]: event.target.value }));
 
   const submit = () => {
-    if (Object.values(values).some((v) => !v.trim())) return setError('All fields are required');
+    if ([values.name, values.firstName, values.lastName, values.email].some((v) => !v.trim())) return setError('Name and coordinator details are required');
     create.mutate(
       {
         name: values.name.trim(),
-        coordinator: { firstName: values.firstName.trim(), lastName: values.lastName.trim(), email: values.email.trim(), password: values.password },
+        coordinator: { firstName: values.firstName.trim(), lastName: values.lastName.trim(), email: values.email.trim(), password: values.password || undefined },
       },
       {
         onSuccess: (org) => {
@@ -334,7 +348,7 @@ function CreateOrganizationModal({ open, onClose, onCreated }: { open: boolean; 
         <Field label="Email" required className="sm:col-span-2">
           <Input type="email" value={values.email} onChange={set('email')} />
         </Field>
-        <Field label="Initial password" required hint="Upper and lower case letters and a number; share it securely." className="sm:col-span-2">
+        <Field label="Initial password (optional)" hint="Leave empty to email them an invitation link to choose their own password." className="sm:col-span-2">
           <Input type="password" autoComplete="new-password" value={values.password} onChange={set('password')} />
         </Field>
       </div>
@@ -360,9 +374,9 @@ function PersonModal({ open, onClose, title, description, organizationId }: { op
 
   const set = (key: keyof typeof EMPTY_PERSON) => (event: { target: { value: string } }) => setValues((v) => ({ ...v, [key]: event.target.value }));
   const submit = () => {
-    if (Object.values(values).some((v) => !v.trim())) return setError('All fields are required');
+    if ([values.firstName, values.lastName, values.email].some((v) => !v.trim())) return setError('Name and email are required');
     add.mutate(
-      { organizationId, firstName: values.firstName.trim(), lastName: values.lastName.trim(), email: values.email.trim(), password: values.password },
+      { organizationId, firstName: values.firstName.trim(), lastName: values.lastName.trim(), email: values.email.trim(), password: values.password || undefined },
       { onSuccess: onClose },
     );
   };
@@ -399,7 +413,7 @@ function PersonModal({ open, onClose, title, description, organizationId }: { op
         <Field label="Email" required className="sm:col-span-2">
           <Input type="email" value={values.email} onChange={set('email')} />
         </Field>
-        <Field label="Initial password" required hint="Upper and lower case letters and a number; share it securely." className="sm:col-span-2">
+        <Field label="Initial password (optional)" hint="Leave empty to email them an invitation link to choose their own password." className="sm:col-span-2">
           <Input type="password" autoComplete="new-password" value={values.password} onChange={set('password')} />
         </Field>
       </div>

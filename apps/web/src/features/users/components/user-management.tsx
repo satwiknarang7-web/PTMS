@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Eye, KeyRound, Pencil, Plus, Search, UserCheck, UserX } from 'lucide-react';
+import { Eye, KeyRound, Mail, Pencil, Plus, Search, UserCheck, UserX } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -27,7 +27,7 @@ import { Field, Input, Select } from '@/shared/ui/form';
 import { Pagination } from '@/shared/ui/layout';
 import { Modal } from '@/shared/ui/modal';
 import { Table, Td, Th, Tr } from '@/shared/ui/table';
-import { useCreateUser, useResetPassword, useUpdateUser, useUsers } from '../api';
+import { useCreateUser, useResetPassword, useSendInvite, useUpdateUser, useUsers } from '../api';
 import type { User } from '../types';
 
 const STATUS_LABELS: Record<string, string> = { active: 'Active', inactive: 'Deactivated', all: 'All statuses' };
@@ -47,6 +47,7 @@ export function UserManagement() {
   const [resetting, setResetting] = useState<User | null>(null);
   const debounced = useDebounce(search);
   const update = useUpdateUser();
+  const invite = useSendInvite();
   const router = useRouter();
 
   useEffect(() => setPage(1), [debounced, role, status]);
@@ -160,6 +161,11 @@ export function UserManagement() {
                                   <DropdownItem onClick={() => { close(); setResetting(user); }}>
                                     <KeyRound /> Reset password
                                   </DropdownItem>
+                                  {user.isActive && (
+                                    <DropdownItem onClick={() => { close(); invite.mutate(user.id); }}>
+                                      <Mail /> {user.lastLoginAt ? 'Email password link' : 'Resend invitation'}
+                                    </DropdownItem>
+                                  )}
                                   {user.id !== session?.id && (
                                     <>
                                       <DropdownSeparator />
@@ -236,9 +242,11 @@ function UserFormModal({ user, onClose, isSelf, roles }: { user: User | 'new' | 
       hourlyRate: values.hourlyRate ? Number(values.hourlyRate) : null,
     };
     if (isNew) {
-      const parsed = passwordSchema(minPasswordLength).safeParse(values.password ?? '');
-      if (!parsed.success) return form.setError('password', { message: parsed.error.issues[0]?.message });
-      create.mutate({ ...base, email: values.email, role: values.role, password: parsed.data }, { onSuccess: onClose });
+      // Without a password the API emails an invitation link instead.
+      const password = values.password || undefined;
+      const parsed = password ? passwordSchema(minPasswordLength).safeParse(password) : null;
+      if (parsed && !parsed.success) return form.setError('password', { message: parsed.error.issues[0]?.message });
+      create.mutate({ ...base, email: values.email, role: values.role, password }, { onSuccess: onClose });
     } else if (existing) {
       update.mutate({ id: existing.id, ...base, ...(roleLocked ? {} : { role: values.role }) }, { onSuccess: onClose });
     }
@@ -295,7 +303,7 @@ function UserFormModal({ user, onClose, isSelf, roles }: { user: User | 'new' | 
           <Input {...form.register('jobTitle')} />
         </Field>
         {isNew && (
-          <Field label="Initial password" required error={errors.password?.message} hint="Share it securely; the user can change it from their profile." className="sm:col-span-2">
+          <Field label="Initial password (optional)" error={errors.password?.message} hint="Leave empty to email them an invitation link to choose their own password." className="sm:col-span-2">
             <Input type="password" autoComplete="new-password" {...form.register('password')} />
           </Field>
         )}

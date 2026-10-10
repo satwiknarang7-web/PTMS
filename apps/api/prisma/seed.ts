@@ -38,15 +38,16 @@ const dayOffset = (days: number) => new Date(today.getTime() + days * DAY);
 
 const saltRounds = () => Number(requireEnv('BCRYPT_SALT_ROUNDS'));
 
-/** The platform root account: creates organizations and appoints their project coordinators. */
+/** The first root admin: creates organizations, appoints their project coordinators and other root admins. */
 async function seedRoot(): Promise<void> {
   const email = ROOT_ACCOUNT.email.toLowerCase();
-  if (await prisma.user.findFirst({ where: { role: PlatformRole.ROOT } })) {
-    console.log('✔ Root account already exists');
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing?.role === PlatformRole.ROOT) {
+    console.log(`✔ Root admin ${email} already exists`);
     return;
   }
-  if (await prisma.user.findUnique({ where: { email } })) {
-    throw new Error(`Root email ${email} is already used by an organization user; change ROOT_ACCOUNT in seed-data.ts`);
+  if (existing) {
+    throw new Error(`Root email ${email} is already used by an organization user; set ROOT_EMAIL to another address`);
   }
   await prisma.user.create({
     data: {
@@ -59,7 +60,7 @@ async function seedRoot(): Promise<void> {
       role: PlatformRole.ROOT,
     },
   });
-  console.log(`✔ Created root account ${email} (change its password after the first sign-in)`);
+  console.log(`✔ Created root admin ${email} (change its password after the first sign-in)`);
 }
 
 /** Creates the demo organization, its coordinator and demo data (meetings included) on the first run only. */

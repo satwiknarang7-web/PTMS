@@ -1,4 +1,4 @@
-import { BarChart3, Building2, CalendarCheck, CalendarDays, Clock, House, LayoutDashboard, Settings, Users, type LucideIcon } from 'lucide-react';
+import { BarChart3, Building2, CalendarCheck, CalendarDays, Clock, House, LayoutDashboard, Settings, ShieldCheck, Users, type LucideIcon } from 'lucide-react';
 import { Permission } from '@/shared/constants/domain';
 import { routes } from './routes';
 
@@ -42,6 +42,7 @@ export const PLATFORM_NAVIGATION: NavSection[] = [
     items: [
       { label: 'Overview', href: routes.platform, icon: LayoutDashboard },
       { label: 'Organizations', href: routes.platformOrganizations, icon: Building2 },
+      { label: 'Root admins', href: routes.platformAdmins, icon: ShieldCheck },
     ],
   },
 ];

@@ -9,7 +9,10 @@ import { Principal } from '../../common/interfaces/authenticated-user.interface'
 import { configuration } from '../../config/configuration';
 import { AuthCookieService } from './auth-cookie.service';
 import { AuthService } from './auth.service';
-import { LoginDto } from './dto/auth.dto';
+import { requestOrigin } from '../../common/utils/request.util';
+import { AccountLinksService } from '../users/account-links.service';
+import { ForgotPasswordDto, LoginDto, SetPasswordDto, TokenDto } from './dto/auth.dto';
+import { LoginAttemptsService } from './login-attempts.service';
 import { ClientMeta } from './token.service';
 
 /** Stricter rate limit for credential endpoints; resolved lazily at request time once env is loaded. */
@@ -27,6 +30,8 @@ export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly cookies: AuthCookieService,
+    private readonly links: AccountLinksService,
+    private readonly attempts: LoginAttemptsService,
   ) {}
 
   @Public()
@@ -67,6 +72,34 @@ export class AuthController {
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     await this.auth.logout(this.cookies.readRefreshToken(req));
     this.cookies.clear(res);
+  }
+
+  /** Emails a reset link when the account exists; the response is the same either way. */
+  @Public()
+  @authThrottle()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Post('forgot-password')
+  async forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: Request) {
+    await this.links.requestPasswordReset(dto.email, requestOrigin(req));
+  }
+
+  /** Checks an invitation or reset link before the user chooses a password. */
+  @Public()
+  @authThrottle()
+  @HttpCode(HttpStatus.OK)
+  @Post('verify-token')
+  verifyToken(@Body() dto: TokenDto) {
+    return this.links.inspect(dto.token);
+  }
+
+  /** Sets a password from an invitation or reset link; every existing session is signed out. */
+  @Public()
+  @authThrottle()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Post('reset-password')
+  async resetPassword(@Body() dto: SetPasswordDto) {
+    const { email } = await this.links.consume(dto.token, dto.password);
+    this.attempts.reset(email);
   }
 
   @Get('me')

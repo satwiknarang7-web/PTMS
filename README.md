@@ -8,23 +8,27 @@ timesheets with approvals, dashboards and portfolio reporting.
 | -------- | --------------------------------------------------------------------- |
 | Web      | Next.js 15 (App Router), React 19, TanStack Query, Tailwind CSS 4, Recharts, dnd-kit |
 | API      | NestJS 11, Prisma 6, Passport JWT, class-validator, Swagger, Throttler, Event Emitter |
-| Database | SQLite out of the box, PostgreSQL ready                               |
+| Database | PostgreSQL (Supabase in production)                                   |
+| Email    | SMTP via Nodemailer: invitations and password resets                  |
 
 ---
 
 ## Quick start
 
-Requirements: **Node.js ≥ 20.11** and npm.
+Requirements: **Node.js ≥ 20.11**, npm and a PostgreSQL database (`docker compose up -d db` starts one
+that matches the defaults in `apps/api/.env.example`).
 
 ```bash
+docker compose up -d db
 npm run setup   # creates env files with random secrets, installs, creates & seeds the DB
 npm run dev     # syncs env + DB schema, then API on http://localhost:4000, web on http://localhost:3000
 ```
 
 The seed creates two kinds of account (values from `apps/api/.env`):
 
-- **Root** (`ROOT_ACCOUNT` in `apps/api/prisma/seed-data.ts`) opens the **Platform console** at `/platform`
-  and is the only account that can create organizations and appoint their project coordinators.
+- **Root admin** (`ROOT_ACCOUNT` in `apps/api/prisma/seed-data.ts`, overridable with `ROOT_EMAIL` / `ROOT_PASSWORD`)
+  opens the **Platform console** at `/platform`. Root admins create organizations, appoint their project
+  coordinators and add other root admins (**Platform → Root admins**).
 - With `SEED_DEMO_DATA=true`, a demo organization is created too: its first **Project coordinator** and the shared
   demo-user password are defined in `DEMO_ORGANIZATION` (e.g. `priya.sharma@segueit.com`).
 - Change these first-run passwords after signing in.
@@ -35,12 +39,23 @@ The seed creates two kinds of account (values from `apps/api/.env`):
 
 | Account | Scope | Can do |
 | ------- | ----- | ------ |
-| **Root** | Whole platform, no organization | Creates, renames, suspends and deletes organizations and is the **only** role that appoints (or changes) **project coordinators**. Can open any organization's workspace with every coordinator permission. |
+| **Root admin** | Whole platform, no organization | Creates, renames, suspends and deletes organizations and is the **only** role that appoints (or changes) **project coordinators**. Adds, deactivates and reactivates other root admins (at least one always stays active). Can open any organization's workspace with every coordinator permission. |
 | **Project coordinator** | One organization | Creates projects and adds members to them, manages every project, creates and manages **member** accounts, schedules meetings, sees every member's details (People), approves time, reports and settings. |
 | **Member** | One organization | Sees only the projects they belong to and works on their items (tasks, issues, comments, time). |
 
 Roles from earlier versions are upgraded automatically by the seed (Super Admin/Admin → Project coordinator,
 Employee → Member).
+
+### Invitations and passwords
+
+- When a root admin, coordinator or member account is created **without** an initial password, the person
+  receives an invitation email with a link to choose their own (valid `INVITE_EXPIRES_HOURS`, default 72).
+  Invitations can be re-sent from **Settings → Users**, the organization drawer, or **Platform → Root admins**.
+- Everyone can change their password under **Profile**.
+- **Forgot password?** on the sign-in screen emails a single-use reset link (valid
+  `PASSWORD_RESET_EXPIRES_MINUTES`, default 60). Setting a new password signs the account out everywhere.
+- Email goes out over SMTP (`SMTP_*` and `MAIL_FROM` in `apps/api/.env`). Without `SMTP_HOST`, development
+  servers write emails (with their links) to the API log; production servers refuse to send invitations.
 
 API documentation (Swagger) is served at `http://localhost:4000/api/docs` when `SWAGGER_ENABLED=true`.
 
@@ -52,9 +67,9 @@ Requirements: **Docker** with Docker Compose. No Node.js needed.
 docker compose up --build
 ```
 
-Open http://localhost:3000 and sign in with the root account from `apps/api/prisma/seed-data.ts`
+Open http://localhost:3000 and sign in with the root admin from `apps/api/prisma/seed-data.ts`
 (`ROOT_ACCOUNT`), then create organizations from the Platform console. Change its password after signing in.
-Data is kept in the `api-data` volume; JWT secrets are generated on first start and stored there too.
+Data is kept in the `db-data` volume (PostgreSQL); JWT secrets are generated on first start and kept in `api-data`.
 
 Change settings with environment variables or a `.env` file next to `docker-compose.yml`:
 
@@ -77,7 +92,19 @@ npm run build
 npm start
 ```
 
-Set `NODE_ENV=production`, `COOKIE_SECURE=true` (HTTPS), real `CORS_ORIGINS`, and strong JWT secrets.
+Set `NODE_ENV=production`, `COOKIE_SECURE=true` (HTTPS), real `CORS_ORIGINS`, strong JWT secrets
+(required, at least 32 characters), `DATABASE_URL` / `DIRECT_URL`, `APP_URL` and the `SMTP_*` settings.
+
+### Deploying on Vercel with Supabase
+
+1. In Supabase, open **Connect** and copy two connection strings, appending `schema=ptms` to each:
+   - `DATABASE_URL`: transaction pooler (port 6543) + `?pgbouncer=true&connection_limit=1&schema=ptms`
+   - `DIRECT_URL`: session pooler (port 5432) + `?schema=ptms`
+2. Create the tables and the first root admin once, from your machine, with those two values in `apps/api/.env`:
+   `npm run db:setup -w @segueit/api` (keep `SEED_DEMO_DATA=false`).
+3. In the Vercel project settings add `DATABASE_URL`, `DIRECT_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`
+   (e.g. `openssl rand -hex 48`), `APP_URL` (your site address), `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`,
+   `SMTP_USER`, `SMTP_PASS` and `MAIL_FROM`, then redeploy.
 
 ---
 
@@ -118,7 +145,7 @@ Set `NODE_ENV=production`, `COOKIE_SECURE=true` (HTTPS), real `CORS_ORIGINS`, an
 | Main table columns | `apps/web/src/features/tasks/components/table/table-columns.ts` |
 | Group color palette | `apps/web/src/features/task-lists/group-colors.ts` (UI) and `apps/api/src/features/task-lists/task-list.colors.ts` (defaults for new groups) |
 | Ports, CORS, secrets, cookies, rate limits, pagination | `apps/api/.env` (validated with Zod at boot) |
-| Root account, demo organization, demo data | `apps/api/prisma/seed-data.ts`; `SEED_DEMO_DATA` in `apps/api/.env` |
+| Root admin, demo organization, demo data | `apps/api/prisma/seed-data.ts`; `SEED_DEMO_DATA` in `apps/api/.env` |
 | Hour of the morning meeting notice | `MEETING_DIGEST_HOUR` in `apps/api/.env` |
 | Statuses, priorities, severities | Database, per organization — **Settings → Workflow** |
 | Org name, default brand color, timezone, week start, working hours | Database — **Settings → Organization** |
@@ -126,11 +153,11 @@ Set `NODE_ENV=production`, `COOKIE_SECURE=true` (HTTPS), real `CORS_ORIGINS`, an
 | Role → permission matrix | `apps/api/src/common/constants/permissions.constants.ts` (served to the UI via `/auth/me`) |
 | Defaults for new organizations | `apps/api/src/features/lookups/lookup.defaults.ts`, `features/organizations/organization.defaults.ts` |
 
-### Using PostgreSQL
+### Database
 
-1. In `apps/api/prisma/schema.prisma` set `provider = "postgresql"`.
-2. Set `DATABASE_URL="postgresql://user:pass@host:5432/segueit"` in `apps/api/.env`.
-3. Run `npm run db:setup`.
+The API uses PostgreSQL. `DATABASE_URL` is the connection the app uses (pooled in production) and
+`DIRECT_URL` the one `prisma db push` uses. Locally both can point at the same database. Run
+`npm run db:setup` after changing the schema or pointing at a new database.
 
 ---
 

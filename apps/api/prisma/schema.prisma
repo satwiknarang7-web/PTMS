@@ -1,16 +1,19 @@
 // SegueIT Projects - data model
 // Enumerated values (roles, lookup types, approval states) are stored as strings
 // and validated in the application layer (see src/common/constants) so that the
-// schema stays portable between SQLite and PostgreSQL.
+// schema stays simple to evolve. The database is PostgreSQL (Supabase in production).
 
 generator client {
   provider      = "prisma-client-js"
-  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+  binaryTargets = ["native", "rhel-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  /// Pooled connection used by the running app (Supabase: transaction pooler, port 6543).
+  url       = env("DATABASE_URL")
+  /// Direct connection used by `prisma db push` (Supabase: session pooler or direct, port 5432).
+  directUrl = env("DIRECT_URL")
 }
 
 model Organization {
@@ -53,6 +56,7 @@ model User {
 
   organization        Organization?    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   refreshTokens       RefreshToken[]
+  authTokens          AuthToken[]
   ownedProjects       Project[]        @relation("ProjectOwner")
   memberships         ProjectMember[]
   taskAssignments     TaskAssignee[]
@@ -70,6 +74,22 @@ model User {
   meetings            Meeting[]
 
   @@index([organizationId])
+}
+
+/// Single-use emailed links: account invitations and password resets. Only the hash is stored.
+model AuthToken {
+  id        String    @id @default(cuid())
+  userId    String
+  /// INVITE | PASSWORD_RESET
+  purpose   String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model RefreshToken {

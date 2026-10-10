@@ -49,6 +49,14 @@ export function useUpdateUser() {
   });
 }
 
+/** Emails a link to choose a password (a new link; earlier ones stop working). */
+export function useSendInvite() {
+  return useMutation({
+    mutationFn: (id: string) => api.post(`/users/${id}/invite`),
+    meta: { successMessage: 'Email sent' },
+  });
+}
+
 export function useResetPassword() {
   return useMutation({
     mutationFn: ({ id, password }: { id: string; password: string }) => api.post(`/users/${id}/reset-password`, { password }),

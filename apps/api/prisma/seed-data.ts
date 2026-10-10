@@ -9,12 +9,15 @@
 import { OrgRole } from '../src/common/constants/roles.constants';
 import { MeetingType } from '../src/features/meetings/meeting.constants';
 
-/** Platform root account: creates organizations and appoints their project coordinators. */
+/**
+ * First root admin: creates organizations, appoints their project coordinators and adds other
+ * root admins from the platform console. ROOT_EMAIL / ROOT_PASSWORD override these values.
+ */
 export const ROOT_ACCOUNT = {
-  email: 'root@segueit.com',
-  password: 'ChangeRoot@123',
-  firstName: 'Platform',
-  lastName: 'Root',
+  email: process.env.ROOT_EMAIL || 'satwik.narang@segueit.com',
+  password: process.env.ROOT_PASSWORD || 'change@123',
+  firstName: 'Satwik',
+  lastName: 'Narang',
   jobTitle: 'Platform Administrator',
 };
 

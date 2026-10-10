@@ -282,8 +282,8 @@ export class TasksService {
       const number = Number(query.search.replace(/^[A-Z]+-/i, ''));
       and.push({
         OR: [
-          { title: { contains: query.search } },
-          { description: { contains: query.search } },
+          { title: { contains: query.search, mode: 'insensitive' } },
+          { description: { contains: query.search, mode: 'insensitive' } },
           ...(Number.isInteger(number) && number > 0 ? [{ number }] : []),
         ],
       });

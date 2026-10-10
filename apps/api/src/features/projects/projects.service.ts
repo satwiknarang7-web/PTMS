@@ -45,7 +45,7 @@ export class ProjectsService {
       ...(query.ownerId ? { ownerId: query.ownerId } : {}),
       ...(query.statusCategory ? { status: { category: query.statusCategory } } : {}),
       ...(query.search
-        ? { OR: [{ name: { contains: query.search } }, { key: { contains: query.search.toUpperCase() } }] }
+        ? { OR: [{ name: { contains: query.search, mode: 'insensitive' } }, { key: { contains: query.search.toUpperCase(), mode: 'insensitive' } }] }
         : {}),
     };
 

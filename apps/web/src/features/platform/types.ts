@@ -23,7 +23,7 @@ export interface PlatformOrganizationQuery {
 
 export interface CreateOrganizationInput {
   name: string;
-  coordinator: { firstName: string; lastName: string; email: string; password: string };
+  coordinator: { firstName: string; lastName: string; email: string; password?: string };
 }
 
 export interface PlatformOverview {
@@ -32,4 +32,16 @@ export interface PlatformOverview {
   coordinators: number;
   projects: number;
   recentOrganizations: { id: string; name: string; slug: string; isActive: boolean; createdAt: string; _count: { users: number } }[];
+}
+
+/** A root admin: platform-level account that runs organizations and appoints coordinators. */
+export interface PlatformAdmin {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  jobTitle: string | null;
+  isActive: boolean;
+  lastLoginAt: string | null;
+  createdAt: string;
 }

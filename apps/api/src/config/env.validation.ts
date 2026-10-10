@@ -18,17 +18,14 @@ export const envSchema = z.object({
   CORS_ORIGINS: z.string().default(''),
   SWAGGER_ENABLED: booleanish.default(false),
 
-  DATABASE_URL: z.string().min(1).default('file:./dev.db'),
+  /** Public address of the web app, used in emailed links (e.g. https://projects.example.com). */
+  APP_URL: z.string().url().optional(),
 
-  JWT_ACCESS_SECRET: z
-    .string()
-    .min(32, 'JWT_ACCESS_SECRET must be at least 32 characters')
-    .default('sptms-default-jwt-access-secret-production-key-change-in-env-32chars'),
+  DATABASE_URL: z.string().min(1, 'DATABASE_URL is required (PostgreSQL connection string)'),
+
+  JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be at least 32 characters'),
   JWT_ACCESS_EXPIRES_IN: z.string().regex(durationPattern).default('15m'),
-  JWT_REFRESH_SECRET: z
-    .string()
-    .min(32, 'JWT_REFRESH_SECRET must be at least 32 characters')
-    .default('sptms-default-jwt-refresh-secret-production-key-change-in-env-32chars'),
+  JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 characters'),
   JWT_REFRESH_EXPIRES_IN: z.string().regex(durationPattern).default('7d'),
   /** Session lifetime when the user ticks "Keep me signed in". */
   JWT_REFRESH_REMEMBER_EXPIRES_IN: z.string().regex(durationPattern).default('30d'),
@@ -47,6 +44,17 @@ export const envSchema = z.object({
   /** Failed sign-ins allowed per account before it is locked for LOGIN_LOCKOUT_MINUTES. */
   LOGIN_MAX_FAILURES: z.coerce.number().int().positive().default(10),
   LOGIN_LOCKOUT_MINUTES: z.coerce.number().int().positive().default(15),
+
+  /** Outgoing mail (invitations, password resets). Leave SMTP_HOST empty to log emails instead of sending them. */
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  /** true for implicit TLS (port 465); STARTTLS is used otherwise when the server offers it. */
+  SMTP_SECURE: booleanish.default(false),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  MAIL_FROM: z.string().optional(),
+  INVITE_EXPIRES_HOURS: z.coerce.number().int().positive().default(72),
+  PASSWORD_RESET_EXPIRES_MINUTES: z.coerce.number().int().positive().default(60),
 
   DEFAULT_PAGE_SIZE: z.coerce.number().int().positive().default(20),
   MAX_PAGE_SIZE: z.coerce.number().int().positive().default(200),
