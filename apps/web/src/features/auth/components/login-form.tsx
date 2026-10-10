@@ -99,14 +99,17 @@ export function LoginForm() {
         Sign in {!isSubmitting && <ArrowRight />}
       </Button>
 
-      {appConfig.supportEmail && (
-        <p className="text-center text-sm text-muted">
-          Need an account?{' '}
-          <a href={`mailto:${appConfig.supportEmail}`} className="font-medium text-brand hover:underline">
-            Contact your administrator
-          </a>
-        </p>
-      )}
+      <p className="text-center text-sm text-muted">
+        New here? Your project coordinator sends you an invitation email.
+        {appConfig.supportEmail && (
+          <>
+            {' '}
+            <a href={`mailto:${appConfig.supportEmail}`} className="font-medium text-brand hover:underline">
+              Contact support
+            </a>
+          </>
+        )}
+      </p>
     </form>
   );
 }

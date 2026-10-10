@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Eye, KeyRound, Mail, Pencil, Plus, Search, UserCheck, UserX } from 'lucide-react';
+import { Eye, KeyRound, Mail, Pencil, Plus, Search, Trash2, UserCheck, UserX } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -13,7 +13,7 @@ import { FilterPopover } from '@/shared/components/filter-popover';
 import { RowMenu } from '@/shared/components/row-menu';
 import { appConfig } from '@/shared/config/env';
 import { routes } from '@/shared/config/routes';
-import { ORG_ROLES, OrgRole, Permission, roleLabel } from '@/shared/constants/domain';
+import { ORG_ROLES, OrgRole, Permission, PLATFORM_ROOT_ROLE, roleLabel } from '@/shared/constants/domain';
 import { useDebounce } from '@/shared/hooks/use-debounce';
 import { errorMessage } from '@/shared/lib/api-client';
 import { formatDateTime, fullName } from '@/shared/lib/utils';
@@ -27,7 +27,8 @@ import { Field, Input, Select } from '@/shared/ui/form';
 import { Pagination } from '@/shared/ui/layout';
 import { Modal } from '@/shared/ui/modal';
 import { Table, Td, Th, Tr } from '@/shared/ui/table';
-import { useCreateUser, useResetPassword, useSendInvite, useUpdateUser, useUsers } from '../api';
+import { useActiveUsers, useCreateUser, useRemoveUser, useResetPassword, useSendInvite, useUpdateUser, useUsers } from '../api';
+import { RemovePersonDialog } from './remove-person-dialog';
 import type { User } from '../types';
 
 const STATUS_LABELS: Record<string, string> = { active: 'Active', inactive: 'Deactivated', all: 'All statuses' };
@@ -48,6 +49,11 @@ export function UserManagement() {
   const debounced = useDebounce(search);
   const update = useUpdateUser();
   const invite = useSendInvite();
+  const remove = useRemoveUser();
+  const [removing, setRemoving] = useState<User | null>(null);
+  /** Only root admins remove people for good; coordinators deactivate them. */
+  const canRemove = session?.role === PLATFORM_ROOT_ROLE;
+  const { data: activePeople } = useActiveUsers();
   const router = useRouter();
 
   useEffect(() => setPage(1), [debounced, role, status]);
@@ -172,6 +178,11 @@ export function UserManagement() {
                                       <DropdownItem danger={user.isActive} onClick={() => { close(); update.mutate({ id: user.id, isActive: !user.isActive }); }}>
                                         {user.isActive ? <UserX /> : <UserCheck />} {user.isActive ? 'Deactivate' : 'Reactivate'}
                                       </DropdownItem>
+                                      {canRemove && (
+                                        <DropdownItem danger onClick={() => { close(); setRemoving(user); }}>
+                                          <Trash2 /> Remove from organization
+                                        </DropdownItem>
+                                      )}
                                     </>
                                   )}
                                 </>
@@ -196,6 +207,13 @@ export function UserManagement() {
         roles={canManageCoordinators ? ORG_ROLES : [OrgRole.MEMBER]}
       />
       <ResetPasswordModal user={resetting} onClose={() => setResetting(null)} />
+      <RemovePersonDialog
+        person={removing}
+        candidates={activePeople?.data ?? []}
+        loading={remove.isPending}
+        onClose={() => setRemoving(null)}
+        onConfirm={(transferTo) => removing && remove.mutate({ id: removing.id, transferTo }, { onSuccess: () => setRemoving(null) })}
+      />
     </Card>
   );
 }

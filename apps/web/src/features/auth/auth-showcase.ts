@@ -1,22 +1,31 @@
-import { CalendarRange, CheckCircle2, Users, type LucideIcon } from 'lucide-react';
+/** Content of the sign-in page's illustration; edit here to change what visitors see. */
+export interface ShowcaseRow {
+  label: string;
+  /** Start column and length on an 8-week grid. */
+  start: number;
+  span: number;
+  /** Share of the bar already done (0-100). */
+  done: number;
+  color: string;
+  /** Ends in a milestone diamond. */
+  milestone?: boolean;
+}
 
-/** Marketing content of the sign-in page; edit here to change what visitors see. */
-export const AUTH_SHOWCASE: {
-  highlights: { icon: LucideIcon; label: string }[];
-  preview: { title: string; rows: { name: string; tag: string; progress: number; note: string; due: string; color: string }[] };
-} = {
-  highlights: [
-    { icon: CalendarRange, label: 'Gantt timelines & dependencies' },
-    { icon: CheckCircle2, label: 'Timesheet approvals' },
-    { icon: Users, label: 'Team workload & utilization' },
+export const AUTH_SHOWCASE = {
+  /** The three verbs of the tagline, shown as large numbered steps. */
+  steps: [
+    { word: 'Plan', detail: 'Roadmaps, milestones and dependencies' },
+    { word: 'Track', detail: 'Boards, timesheets and live workload' },
+    { word: 'Deliver', detail: 'Approvals, reports and portfolio health' },
   ],
-  /** Illustrative product preview (not live data). */
-  preview: {
-    title: 'portfolio-overview',
-    rows: [
-      { name: 'ERP Data Migration', tag: 'Planning', progress: 32, note: 'Data mapping in review', due: 'Due in 4 days', color: '#3e63dd' },
-      { name: 'Field Service Mobile App', tag: 'QA', progress: 64, note: 'Sprint 14 · in review', due: 'Due Sep 28', color: '#30a46c' },
-      { name: 'Corporate Website Revamp', tag: 'Design', progress: 45, note: 'Design tokens synced', due: 'Due Oct 12', color: '#8e4ec6' },
-    ],
-  },
+  weeks: ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7', 'W8'],
+  /** Week (0-8, fractions allowed) where the "Today" marker sits. */
+  today: 4.4,
+  /** Illustrative plan (not live data). */
+  rows: [
+    { label: 'Discovery', start: 0, span: 2, done: 100, color: '#60a5fa' },
+    { label: 'Design system', start: 1.5, span: 2.5, done: 100, color: '#a78bfa' },
+    { label: 'Build & integrate', start: 3, span: 3.5, done: 45, color: '#34d399' },
+    { label: 'QA & rollout', start: 5.5, span: 2, done: 0, color: '#fbbf24', milestone: true },
+  ] satisfies ShowcaseRow[],
 };

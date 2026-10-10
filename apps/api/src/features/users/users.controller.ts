@@ -1,7 +1,8 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, Req } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { hasPermission, Permission } from '../../common/constants/permissions.constants';
+import { isRoot } from '../../common/constants/roles.constants';
 import { AccountScope, ForAccounts } from '../../common/decorators/account-scope.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
@@ -9,6 +10,7 @@ import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.in
 import {
   ChangePasswordDto,
   CreateUserDto,
+  RemoveUserQueryDto,
   ResetPasswordDto,
   UpdateProfileDto,
   UpdateUserDto,
@@ -73,6 +75,15 @@ export class UsersController {
   @RequirePermissions(Permission.USERS_MANAGE)
   update(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: UpdateUserDto) {
     return this.users.update(user, id, dto);
+  }
+
+  /** Root admins only: permanently removes a person (see UsersService.remove). */
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @RequirePermissions(Permission.USERS_MANAGE)
+  remove(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Query() query: RemoveUserQueryDto) {
+    if (!isRoot(user.role)) throw new ForbiddenException('Only a root admin can remove people. Deactivate the account instead.');
+    return this.users.remove(user.organizationId, user.id, id, query.transferTo);
   }
 
   @Post(':id/reset-password')

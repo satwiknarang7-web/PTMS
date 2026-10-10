@@ -16,6 +16,7 @@
     "db:drop-removed": "prisma db execute --file prisma/drop-removed-tables.sql --schema prisma/schema.prisma",
     "db:setup": "npm run db:drop-removed && prisma db push && prisma db seed",
     "db:seed": "prisma db seed",
+    "db:remove-demo": "tsx prisma/remove-demo.ts",
     "db:reset": "prisma db push --force-reset && prisma db seed",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate"

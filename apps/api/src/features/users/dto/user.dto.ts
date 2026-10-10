@@ -110,3 +110,10 @@ export class ResetPasswordDto {
   @IsPassword()
   password: string;
 }
+
+export class RemoveUserQueryDto {
+  @ApiPropertyOptional({ description: 'Active member who takes over their projects, tasks, issues, meetings and automations' })
+  @IsOptional()
+  @IsString()
+  transferTo?: string;
+}

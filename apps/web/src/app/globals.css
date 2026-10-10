@@ -365,3 +365,52 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ─── Sign-in illustration ─────────────────────────────────── */
+@keyframes auth-bar {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes auth-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+@keyframes auth-glow {
+  50% {
+    opacity: 0.35;
+  }
+}
+@keyframes auth-float {
+  50% {
+    transform: translateY(-6px);
+  }
+}
+.auth-bar {
+  transform-origin: left center;
+  animation: auth-bar 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.auth-rise {
+  animation: auth-rise 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.auth-glow {
+  animation: auth-glow 2.4s ease-in-out infinite;
+}
+.auth-float {
+  animation: auth-float 6s ease-in-out infinite;
+}
+.auth-grid {
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.06) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse 85% 75% at 40% 45%, black 40%, transparent 100%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-glow,
+  .auth-float {
+    animation: none !important;
+  }
+}

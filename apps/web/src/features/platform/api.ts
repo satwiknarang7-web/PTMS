@@ -74,6 +74,17 @@ export function useSendCoordinatorInvite() {
   });
 }
 
+/** Permanently removes someone from an organization; their work goes to `transferTo` (or a coordinator). */
+export function useRemoveOrganizationUser() {
+  const invalidate = useInvalidatePlatform();
+  return useMutation({
+    mutationFn: ({ organizationId, userId, transferTo }: { organizationId: string; userId: string; transferTo?: string }) =>
+      api.delete<void>(`/platform/organizations/${organizationId}/users/${userId}`, transferTo ? { transferTo } : undefined),
+    meta: { successMessage: 'Person removed' },
+    onSuccess: invalidate,
+  });
+}
+
 // ─── Root admins ─────────────────────────────────────────────
 
 export function usePlatformAdmins() {

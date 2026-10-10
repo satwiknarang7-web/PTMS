@@ -22,7 +22,7 @@ cd /app/apps/api
 npx --no-install prisma db execute --file prisma/drop-removed-tables.sql --schema prisma/schema.prisma
 npx --no-install prisma db push --skip-generate
 
-# Creates the root account (plus demo data when SEED_DEMO_DATA=true).
+# Creates the first root admin and the company organization.
 # Every step is idempotent, so restarts never duplicate anything.
 if [ "$SEED_ON_START" = "true" ]; then
   npx --no-install prisma db seed

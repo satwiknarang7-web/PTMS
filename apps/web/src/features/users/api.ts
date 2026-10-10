@@ -49,6 +49,16 @@ export function useUpdateUser() {
   });
 }
 
+/** Root admins only: permanently removes a person; their work goes to `transferTo` (or a coordinator). */
+export function useRemoveUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, transferTo }: { id: string; transferTo?: string }) => api.delete(`/users/${id}`, transferTo ? { transferTo } : undefined),
+    meta: { successMessage: 'Person removed' },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: userKeys.all }),
+  });
+}
+
 /** Emails a link to choose a password (a new link; earlier ones stop working). */
 export function useSendInvite() {
   return useMutation({

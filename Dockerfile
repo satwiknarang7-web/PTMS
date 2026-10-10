@@ -45,8 +45,7 @@ ENV NODE_ENV=production \
     DEFAULT_PAGE_SIZE=20 \
     MAX_PAGE_SIZE=200 \
     MEETING_DIGEST_HOUR=8 \
-    SEED_ON_START=true \
-    SEED_DEMO_DATA=false
+    SEED_ON_START=true
 # The seed creates the root account (accounts are defined in prisma/seed-data.ts).
 # Prisma CLI and tsx stay installed: the entrypoint syncs the schema and runs the seed.
 COPY --from=api-build /app/package.json ./

@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { hasPermission, Permission } from '../../common/constants/permissions.constants';
-import { normalizeRole, OrgRole } from '../../common/constants/roles.constants';
+import { normalizeRole, OrgRole, ProjectRole } from '../../common/constants/roles.constants';
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { Paginated, PaginationService } from '../../common/pagination/pagination.service';
 import { StatusCategory } from '../../common/constants/domain.constants';
@@ -273,6 +273,52 @@ export class UsersService {
       data: { passwordHash: await this.passwords.hash(dto.newPassword) },
     });
     await this.revokeSessions(userId);
+  }
+
+  /**
+   * Permanently removes a person from an organization. Projects they own, tasks they created,
+   * issues they reported, meetings they scheduled and automations they set up are handed over to
+   * `transferToId` (or the first other active coordinator); their comments, time entries and
+   * activity are deleted with the account. Callers decide who may do this (root admins).
+   */
+  async remove(organizationId: string, actorId: string, id: string, transferToId?: string): Promise<void> {
+    if (id === actorId) throw new BadRequestException('You cannot remove yourself');
+    const target = await this.prisma.user.findFirst({ where: { id, organizationId }, select: { id: true } });
+    if (!target) throw new NotFoundException('User not found');
+
+    const heirId = await this.resolveHeir(organizationId, id, actorId, transferToId);
+    const owned = await this.prisma.project.findMany({ where: { ownerId: id }, select: { id: true } });
+
+    await this.prisma.$transaction([
+      this.prisma.project.updateMany({ where: { ownerId: id }, data: { ownerId: heirId } }),
+      // The new owner must be able to open the projects handed to them.
+      this.prisma.projectMember.createMany({
+        data: owned.map((project) => ({ projectId: project.id, userId: heirId, role: ProjectRole.MEMBER })),
+        skipDuplicates: true,
+      }),
+      this.prisma.task.updateMany({ where: { createdById: id }, data: { createdById: heirId } }),
+      this.prisma.issue.updateMany({ where: { reporterId: id }, data: { reporterId: heirId } }),
+      this.prisma.meeting.updateMany({ where: { createdById: id }, data: { createdById: heirId } }),
+      this.prisma.automation.updateMany({ where: { createdById: id }, data: { createdById: heirId } }),
+      this.prisma.user.delete({ where: { id } }),
+    ]);
+  }
+
+  /** Who inherits a removed person's projects and records. */
+  private async resolveHeir(organizationId: string, removedId: string, actorId: string, transferToId?: string): Promise<string> {
+    if (transferToId) {
+      if (transferToId === removedId) throw new BadRequestException('Choose someone else to hand their work over to');
+      const heir = await this.prisma.user.findFirst({ where: { id: transferToId, organizationId, isActive: true }, select: { id: true } });
+      if (!heir) throw new BadRequestException('The person to hand work over to must be an active member of this organization');
+      return heir.id;
+    }
+    const coordinator = await this.prisma.user.findFirst({
+      where: { organizationId, isActive: true, role: OrgRole.PROJECT_COORDINATOR, id: { not: removedId } },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    });
+    // Root admins are not part of the organization but can still own its records.
+    return coordinator?.id ?? actorId;
   }
 
   private revokeSessions(userId: string) {

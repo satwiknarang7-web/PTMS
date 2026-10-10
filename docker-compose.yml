@@ -7,7 +7,7 @@
 # For local development without Docker for the app itself: `docker compose up -d db`.
 #
 # Settings below can be overridden from your shell or a `.env` file next to this one,
-# e.g. SEED_DEMO_DATA=true docker compose up --build
+# e.g. WEB_PORT=8080 docker compose up --build
 
 name: segueit-projects
 
@@ -56,8 +56,6 @@ services:
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-}
       # Hour (organization time zone) when everyone is told about that day's meetings.
       MEETING_DIGEST_HOUR: ${MEETING_DIGEST_HOUR:-8}
-      # true adds a demo organization with sample users and projects (see prisma/seed-data.ts).
-      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-false}
     volumes:
       - api-data:/data
     depends_on:

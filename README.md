@@ -29,8 +29,10 @@ The seed creates two kinds of account (values from `apps/api/.env`):
 - **Root admin** (`ROOT_ACCOUNT` in `apps/api/prisma/seed-data.ts`, overridable with `ROOT_EMAIL` / `ROOT_PASSWORD`)
   opens the **Platform console** at `/platform`. Root admins create organizations, appoint their project
   coordinators and add other root admins (**Platform → Root admins**).
-- With `SEED_DEMO_DATA=true`, a demo organization is created too: its first **Project coordinator** and the shared
-  demo-user password are defined in `DEMO_ORGANIZATION` (e.g. `priya.sharma@segueit.com`).
+- The **SegueIT** organization (`COMPANY_ORGANIZATION`) is created empty: appoint its project coordinators from
+  the Platform console, and they add everyone else.
+- Databases seeded by earlier versions still hold demo people and projects: `npm run db:remove-demo`
+  deletes them (`-- --dry-run` lists them first).
 - Change these first-run passwords after signing in.
 
 **Change these values before any real deployment.**
@@ -75,7 +77,6 @@ Change settings with environment variables or a `.env` file next to `docker-comp
 
 | Variable | Default | Purpose |
 | -------- | ------- | ------- |
-| `SEED_DEMO_DATA` | `false` | `true` adds a demo organization with sample users and projects (`DEMO_ORGANIZATION` in seed-data.ts) |
 | `WEB_PORT` | `3000` | Port on your machine |
 | `COOKIE_SECURE` | `false` | Set `true` when served over HTTPS |
 | `APP_NAME`, `BRAND_COLOR` | SegueIT Projects, `#0b5cad` | Branding (rebuild after changing) |
@@ -101,7 +102,7 @@ Set `NODE_ENV=production`, `COOKIE_SECURE=true` (HTTPS), real `CORS_ORIGINS`, st
    - `DATABASE_URL`: transaction pooler (port 6543) + `?pgbouncer=true&connection_limit=1&schema=ptms`
    - `DIRECT_URL`: session pooler (port 5432) + `?schema=ptms`
 2. Create the tables and the first root admin once, from your machine, with those two values in `apps/api/.env`:
-   `npm run db:setup -w @segueit/api` (keep `SEED_DEMO_DATA=false`).
+   `npm run db:setup -w @segueit/api`.
 3. In the Vercel project settings add `DATABASE_URL`, `DIRECT_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`
    (e.g. `openssl rand -hex 48`), `APP_URL` (your site address), `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`,
    `SMTP_USER`, `SMTP_PASS` and `MAIL_FROM`, then redeploy.
@@ -145,7 +146,7 @@ Set `NODE_ENV=production`, `COOKIE_SECURE=true` (HTTPS), real `CORS_ORIGINS`, st
 | Main table columns | `apps/web/src/features/tasks/components/table/table-columns.ts` |
 | Group color palette | `apps/web/src/features/task-lists/group-colors.ts` (UI) and `apps/api/src/features/task-lists/task-list.colors.ts` (defaults for new groups) |
 | Ports, CORS, secrets, cookies, rate limits, pagination | `apps/api/.env` (validated with Zod at boot) |
-| Root admin, demo organization, demo data | `apps/api/prisma/seed-data.ts`; `SEED_DEMO_DATA` in `apps/api/.env` |
+| First root admin and company organization | `apps/api/prisma/seed-data.ts`; `ROOT_EMAIL` / `ROOT_PASSWORD` in `apps/api/.env` |
 | Hour of the morning meeting notice | `MEETING_DIGEST_HOUR` in `apps/api/.env` |
 | Statuses, priorities, severities | Database, per organization — **Settings → Workflow** |
 | Org name, default brand color, timezone, week start, working hours | Database — **Settings → Organization** |

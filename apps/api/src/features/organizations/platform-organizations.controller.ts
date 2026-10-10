@@ -13,6 +13,8 @@ import {
   PlatformOrganizationQueryDto,
   UpdatePlatformOrganizationDto,
 } from './dto/platform-organization.dto';
+import { RemoveUserQueryDto } from '../users/dto/user.dto';
+import { UsersService } from '../users/users.service';
 import { Inviter, PlatformOrganizationsService } from './platform-organizations.service';
 
 const inviter = (user: PlatformUser, req: Request): Inviter => ({ name: `${user.firstName} ${user.lastName}`, origin: requestOrigin(req) });
@@ -22,7 +24,10 @@ const inviter = (user: PlatformUser, req: Request): Inviter => ({ name: `${user.
 @PlatformOnly()
 @RequirePermissions(Permission.PLATFORM_MANAGE)
 export class PlatformOrganizationsController {
-  constructor(private readonly organizations: PlatformOrganizationsService) {}
+  constructor(
+    private readonly organizations: PlatformOrganizationsService,
+    private readonly users: UsersService,
+  ) {}
 
   @Get()
   findAll(@Query() query: PlatformOrganizationQueryDto) {
@@ -48,6 +53,13 @@ export class PlatformOrganizationsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   resendCoordinatorInvite(@Param('id') id: string, @Param('userId') userId: string, @CurrentUser() user: PlatformUser, @Req() req: Request) {
     return this.organizations.resendCoordinatorInvite(id, userId, inviter(user, req));
+  }
+
+  /** Permanently removes a person from the organization; their work goes to `transferTo` or a coordinator. */
+  @Delete(':id/users/:userId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  removeUser(@Param('id') id: string, @Param('userId') userId: string, @Query() query: RemoveUserQueryDto, @CurrentUser() user: PlatformUser) {
+    return this.users.remove(id, user.id, userId, query.transferTo);
   }
 
   @Patch(':id')

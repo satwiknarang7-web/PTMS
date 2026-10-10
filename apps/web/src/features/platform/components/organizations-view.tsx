@@ -20,6 +20,7 @@ import { ConfirmDialog, Drawer, Modal } from '@/shared/ui/modal';
 import { Table, Td, Th, Tr } from '@/shared/ui/table';
 import {
   useAddCoordinator,
+  useRemoveOrganizationUser,
   useSendCoordinatorInvite,
   useCreateOrganization,
   useDeletePlatformOrganization,
@@ -28,6 +29,7 @@ import {
   usePlatformOrganizations,
   useUpdatePlatformOrganization,
 } from '../api';
+import { RemovePersonDialog } from '@/features/users/components/remove-person-dialog';
 import type { PlatformOrganizationDetail } from '../types';
 
 type StatusFilter = 'all' | 'active' | 'suspended';
@@ -142,6 +144,8 @@ function OrganizationDetails({ org, onDeleted }: { org: PlatformOrganizationDeta
   const update = useUpdatePlatformOrganization();
   const remove = useDeletePlatformOrganization();
   const invite = useSendCoordinatorInvite();
+  const removeUser = useRemoveOrganizationUser();
+  const [removing, setRemoving] = useState<PlatformOrganizationDetail['coordinators'][number] | null>(null);
   const [name, setName] = useState(org.name);
   const [adding, setAdding] = useState(false);
   const [confirm, setConfirm] = useState<'suspend' | 'delete' | null>(null);
@@ -187,13 +191,27 @@ function OrganizationDetails({ org, onDeleted }: { org: PlatformOrganizationDeta
                     <Mail />
                   </Button>
                 )}
+                <Button size="sm" variant="ghost" title="Remove from organization" aria-label={`Remove ${fullName(u)}`} onClick={() => setRemoving(u)}>
+                  <Trash2 className="text-danger" />
+                </Button>
               </li>
             ))}
           </ul>
         ) : (
           <p className="rounded-ui-lg border border-dashed border-border p-4 text-sm text-muted">No coordinator yet. Add one so someone can run this organization.</p>
         )}
-        <p className="mt-2 text-xs text-muted">To promote an existing member, open the workspace and change their role under Settings → Users.</p>
+        <p className="mt-2 text-xs text-muted">
+          To promote, deactivate or remove other people, open the workspace and use Settings → Users.
+        </p>
+        <RemovePersonDialog
+          person={removing}
+          candidates={org.coordinators.filter((c) => c.isActive)}
+          loading={removeUser.isPending}
+          onClose={() => setRemoving(null)}
+          onConfirm={(transferTo) =>
+            removing && removeUser.mutate({ organizationId: org.id, userId: removing.id, transferTo }, { onSuccess: () => setRemoving(null) })
+          }
+        />
       </section>
 
       <Disclosure label="Rename organization">
