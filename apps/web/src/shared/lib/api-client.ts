@@ -30,7 +30,20 @@ function buildUrl(path: string, query?: Record<string, QueryValue>): string {
     params.set(key, value instanceof Date ? value.toISOString() : String(value));
   });
   const qs = params.toString();
-  return `${appConfig.apiBasePath}${path.startsWith('/') ? path : `/${path}`}${qs ? `?${qs}` : ''}`;
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const search = qs ? `?${qs}` : '';
+
+  // In server-side functions, use the internal service binding URL if available.
+  if (typeof window === 'undefined') {
+    const internalUrl = process.env.API_INTERNAL_URL || process.env.API_PROXY_TARGET;
+    if (internalUrl) {
+      const base = internalUrl.replace(/\/+$/, '');
+      const fullPath = normalizedPath.startsWith('/api/') ? normalizedPath.slice(4) : normalizedPath;
+      return `${base}${fullPath}${search}`;
+    }
+  }
+
+  return `${appConfig.apiBasePath}${normalizedPath}${search}`;
 }
 
 async function parseError(response: Response): Promise<ApiError> {
