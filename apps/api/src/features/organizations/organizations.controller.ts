@@ -6,6 +6,7 @@ import { RequirePermissions } from '../../common/decorators/require-permissions.
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 import { OrganizationsService } from './organizations.service';
+import { ViewerAllowed } from '../../common/decorators/viewer-allowed.decorator';
 
 @ApiTags('Organization')
 @Controller('organization')
@@ -13,6 +14,7 @@ export class OrganizationsController {
   constructor(private readonly organizations: OrganizationsService) {}
 
   @Get()
+  @ViewerAllowed()
   current(@CurrentUser() user: AuthenticatedUser) {
     return this.organizations.findById(user.organizationId);
   }

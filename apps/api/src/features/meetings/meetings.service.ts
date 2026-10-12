@@ -1,7 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { NotificationType } from '../../common/constants/domain.constants';
+import { hasPermission, Permission } from '../../common/constants/permissions.constants';
+import { isViewer, OrgRole } from '../../common/constants/roles.constants';
 import { NotificationLinks } from '../../common/events/domain-events';
 import { EventPublisher } from '../../common/events/event-publisher.service';
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
@@ -41,6 +43,10 @@ export class MeetingsService {
 
   /** Meetings the user may see: organization-wide ones and those of projects they can open. */
   private visibleWhere(user: AuthenticatedUser): Prisma.MeetingWhereInput {
+    if (isViewer(user.role)) {
+      // Clients see only the client meetings of the projects they were added to.
+      return { organizationId: user.organizationId, type: MeetingType.CLIENT, project: this.access.visibleProjectsWhere(user) };
+    }
     return {
       organizationId: user.organizationId,
       OR: [{ projectId: null }, { project: this.access.visibleProjectsWhere(user) }],
@@ -73,6 +79,7 @@ export class MeetingsService {
   }
 
   async create(user: AuthenticatedUser, dto: CreateMeetingDto) {
+    this.assertCanSchedule(user, dto);
     this.assertTimes(dto.startsAt, dto.endsAt);
     if (dto.projectId) await this.assertProjectWritable(user, dto.projectId);
     const meeting = await this.prisma.meeting.create({
@@ -96,6 +103,8 @@ export class MeetingsService {
 
   async update(user: AuthenticatedUser, id: string, dto: UpdateMeetingDto) {
     const meeting = await this.findOne(user, id);
+    this.assertCanChange(user, meeting);
+    this.assertCanSchedule(user, { type: dto.type ?? meeting.type, projectId: dto.projectId === undefined ? meeting.projectId : dto.projectId });
     const startsAt = dto.startsAt ?? meeting.startsAt;
     this.assertTimes(startsAt, dto.endsAt ?? meeting.endsAt);
     if (meeting.projectId) await this.assertProjectWritable(user, meeting.projectId);
@@ -115,6 +124,7 @@ export class MeetingsService {
 
   async remove(user: AuthenticatedUser, id: string): Promise<void> {
     const meeting = await this.findOne(user, id);
+    this.assertCanChange(user, meeting);
     if (meeting.projectId) await this.assertProjectWritable(user, meeting.projectId);
     await this.prisma.meeting.delete({ where: { id } });
   }
@@ -140,7 +150,7 @@ export class MeetingsService {
         ...(meetingId ? { id: meetingId } : {}),
       },
       include: {
-        project: { select: { name: true, members: { where: { user: { isActive: true } }, select: { userId: true } } } },
+        project: { select: { name: true, members: { where: { user: { isActive: true } }, select: { userId: true, user: { select: { role: true } } } } } },
         createdBy: { select: { isActive: true } },
       },
     });
@@ -152,22 +162,39 @@ export class MeetingsService {
     if (!dueToday.length) return;
 
     const everyone = dueToday.some((meeting) => !meeting.project)
-      ? (await this.prisma.user.findMany({ where: { organizationId, isActive: true }, select: { id: true } })).map((u) => u.id)
+      ? (await this.prisma.user.findMany({ where: { organizationId, isActive: true, role: { not: OrgRole.VIEWER } }, select: { id: true } })).map((u) => u.id)
       : [];
     for (const meeting of dueToday) {
       // The person who scheduled it is told too (while active), even when they are not a member of the project.
       const organizer = meeting.createdBy.isActive ? [meeting.createdById] : [];
-      const recipientIds = meeting.project ? [...meeting.project.members.map((member) => member.userId), ...organizer] : everyone;
+      // Clients hear only about client meetings.
+      const audience = meeting.project?.members.filter((member) => meeting.type === MeetingType.CLIENT || member.user.role !== OrgRole.VIEWER) ?? [];
+      const recipientIds = meeting.project ? [...audience.map((member) => member.userId), ...organizer] : everyone;
       this.events.notify({
         recipientIds,
         actorId: SYSTEM_ACTOR,
         type: NotificationType.MEETING_TODAY,
-        title: `Today ${formatTime(meeting.startsAt, organization.timezone)} · ${meeting.title}`,
+        // The time is a token each reader's app shows in their own time zone (organization time is the fallback).
+        title: `Today ${timeToken(meeting.startsAt)} · ${meeting.title}`,
         body: `${MEETING_TYPE_LABELS[meeting.type as MeetingType] ?? 'Meeting'}${meeting.project ? ` · ${meeting.project.name}` : ''} · ${meeting.link}`,
         link: NotificationLinks.calendar(todayInTimezone(organization.timezone, meeting.startsAt).toISOString().slice(0, 10)),
       });
     }
     await this.prisma.meeting.updateMany({ where: { id: { in: dueToday.map((m) => m.id) } }, data: { reminderSentAt: now } });
+  }
+
+  /** Coordinators and root schedule any meeting; clients only client meetings of their own projects. */
+  private assertCanSchedule(user: AuthenticatedUser, meeting: { type: string; projectId?: string | null }): void {
+    if (hasPermission(user.role, Permission.MEETINGS_MANAGE)) return;
+    if (!isViewer(user.role)) throw new ForbiddenException('Only project coordinators can schedule meetings');
+    if (meeting.type !== MeetingType.CLIENT) throw new ForbiddenException('Clients can schedule client meetings only');
+    if (!meeting.projectId) throw new BadRequestException('Choose the project the meeting is about');
+  }
+
+  /** Clients change only the meetings they scheduled themselves. */
+  private assertCanChange(user: AuthenticatedUser, meeting: { createdById: string }): void {
+    if (hasPermission(user.role, Permission.MEETINGS_MANAGE)) return;
+    if (!isViewer(user.role) || meeting.createdById !== user.id) throw new ForbiddenException('You can only change meetings you scheduled');
   }
 
   private assertTimes(startsAt: Date, endsAt: Date): void {
@@ -194,10 +221,7 @@ function localHour(timezone: string, now: Date): number {
   }
 }
 
-function formatTime(date: Date, timezone: string): string {
-  try {
-    return new Intl.DateTimeFormat('en-GB', { timeZone: timezone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date);
-  } catch {
-    return date.toISOString().slice(11, 16);
-  }
+/** `{{time:<ISO instant>}}`: the web app replaces it with the time in the reader's own time zone. */
+function timeToken(date: Date): string {
+  return `{{time:${date.toISOString()}}}`;
 }

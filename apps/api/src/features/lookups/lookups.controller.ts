@@ -12,6 +12,7 @@ import {
   UpdateLookupDto,
 } from './dto/lookup.dto';
 import { LookupsService } from './lookups.service';
+import { ViewerAllowed } from '../../common/decorators/viewer-allowed.decorator';
 
 @ApiTags('Lookups')
 @Controller('lookups')
@@ -19,6 +20,7 @@ export class LookupsController {
   constructor(private readonly lookups: LookupsService) {}
 
   @Get()
+  @ViewerAllowed()
   findAll(@CurrentUser() user: AuthenticatedUser, @Query() query: LookupQueryDto) {
     return this.lookups.findAll(user.organizationId, query.type);
   }

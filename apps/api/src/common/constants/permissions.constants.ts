@@ -42,6 +42,8 @@ export const ROLE_PERMISSIONS: Record<OrgRole | PlatformRole, readonly Permissio
   [PlatformRole.ROOT]: [Permission.PLATFORM_MANAGE, Permission.COORDINATORS_MANAGE, ...COORDINATOR_PERMISSIONS],
   [OrgRole.PROJECT_COORDINATOR]: COORDINATOR_PERMISSIONS,
   [OrgRole.MEMBER]: [Permission.USERS_VIEW],
+  // Clients reach only the routes marked @ViewerAllowed(); see PermissionsGuard.
+  [OrgRole.VIEWER]: [],
 };
 
 export const permissionsForRole = (role: string): readonly Permission[] =>

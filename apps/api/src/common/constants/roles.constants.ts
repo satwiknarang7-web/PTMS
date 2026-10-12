@@ -11,6 +11,8 @@ export type PlatformRole = (typeof PlatformRole)[keyof typeof PlatformRole];
 export const OrgRole = {
   PROJECT_COORDINATOR: 'PROJECT_COORDINATOR',
   MEMBER: 'MEMBER',
+  /** A client: sees the dashboards of the projects they are added to and their client meetings. */
+  VIEWER: 'VIEWER',
 } as const;
 export type OrgRole = (typeof OrgRole)[keyof typeof OrgRole];
 export const ORG_ROLES = Object.values(OrgRole);
@@ -37,6 +39,7 @@ export const ProjectRole = {
 } as const;
 export type ProjectRole = (typeof ProjectRole)[keyof typeof ProjectRole];
 
+export const isViewer = (role: string): boolean => role === OrgRole.VIEWER;
 export const isRoot = (role: string): boolean => role === PlatformRole.ROOT;
 /** Root acts with coordinator authority inside whichever organization it has opened. */
 export const isCoordinator = (role: string): boolean => normalizeRole(role) === OrgRole.PROJECT_COORDINATOR || isRoot(role);

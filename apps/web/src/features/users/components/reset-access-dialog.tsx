@@ -6,7 +6,8 @@ import { usePasswordMinLength } from '@/features/auth/api';
 import { passwordSchema } from '@/features/auth/schemas';
 import { fullName } from '@/shared/lib/utils';
 import { Button } from '@/shared/ui/button';
-import { Field, Input } from '@/shared/ui/form';
+import { PasswordInput } from '@/features/auth/components/password-input';
+import { Field } from '@/shared/ui/form';
 import { Modal } from '@/shared/ui/modal';
 
 interface Person {
@@ -48,7 +49,7 @@ export function ResetAccessDialog({ person, onClose, onResetPassword, onResetTwo
         <section className="space-y-3">
           <h3 className="text-sm font-semibold">New password</h3>
           <Field error={error} hint="Share it with them securely. They are signed out everywhere and can change it from their profile.">
-            <Input type="password" autoComplete="new-password" placeholder="New password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <PasswordInput autoComplete="new-password" placeholder="New password" value={password} onChange={(e) => setPassword(e.target.value)} />
           </Field>
           <Button onClick={submitPassword} loading={passwordPending} disabled={!password}>
             Set new password

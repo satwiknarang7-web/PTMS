@@ -20,6 +20,7 @@ export const platformKeys = {
   organizations: (query: PlatformOrganizationQuery) => ['platform', 'organizations', query] as const,
   organization: (id: string) => ['platform', 'organization', id] as const,
   admins: ['platform', 'admins'] as const,
+  settings: ['platform', 'settings'] as const,
 };
 
 export function usePlatformOverview() {
@@ -189,6 +190,26 @@ export function useExitWorkspace() {
     onSuccess: () => {
       queryClient.clear();
       router.push(routes.platform);
+    },
+  });
+}
+
+export interface PlatformSettings {
+  twoFactorRequired: boolean;
+}
+
+export function usePlatformSettings() {
+  return useQuery({ queryKey: platformKeys.settings, queryFn: () => api.get<PlatformSettings>('/platform/settings') });
+}
+
+export function useUpdatePlatformSettings() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Partial<PlatformSettings>) => api.patch<PlatformSettings>('/platform/settings', input),
+    meta: { successMessage: 'Security settings saved' },
+    onSuccess: (data) => {
+      queryClient.setQueryData(platformKeys.settings, data);
+      void queryClient.invalidateQueries({ queryKey: ['auth', 'two-factor'] });
     },
   });
 }

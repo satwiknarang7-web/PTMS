@@ -15,6 +15,7 @@ import { Card } from '@/shared/ui/card';
 import { Disclosure } from '@/shared/ui/collapsible';
 import { EmptyState, ErrorState, Spinner } from '@/shared/ui/feedback';
 import { Dropdown, DropdownItem, DropdownSeparator } from '@/shared/ui/dropdown';
+import { PasswordInput } from '@/features/auth/components/password-input';
 import { Field, FormAlert, Input, Select } from '@/shared/ui/form';
 import { PageHeader, Pagination, Segmented, Toolbar } from '@/shared/ui/layout';
 import { ConfirmDialog, Drawer, Modal } from '@/shared/ui/modal';
@@ -198,12 +199,13 @@ function OrganizationDetails({ org, onDeleted }: { org: PlatformOrganizationDeta
                 <Select
                   aria-label={`Role of ${fullName(u)}`}
                   className="h-8 w-auto py-0 text-xs"
-                  value={u.role === OrgRole.PROJECT_COORDINATOR ? OrgRole.PROJECT_COORDINATOR : OrgRole.MEMBER}
+                  value={u.role === OrgRole.PROJECT_COORDINATOR || u.role === OrgRole.VIEWER ? u.role : OrgRole.MEMBER}
                   disabled={changeRole.isPending && changeRole.variables?.userId === u.id}
                   onChange={(e) => changeRole.mutate({ organizationId: org.id, userId: u.id, role: e.target.value })}
                 >
                   <option value={OrgRole.MEMBER}>{roleLabel(OrgRole.MEMBER)}</option>
                   <option value={OrgRole.PROJECT_COORDINATOR}>{roleLabel(OrgRole.PROJECT_COORDINATOR)}</option>
+                  <option value={OrgRole.VIEWER}>{roleLabel(OrgRole.VIEWER)}</option>
                 </Select>
                 <span className="flex items-center">
                   <Button size="sm" variant="ghost" title="Reset password or two-step sign-in" aria-label={`Reset access for ${fullName(u)}`} onClick={() => setResettingAccess(u)}>
@@ -392,7 +394,7 @@ function CreateOrganizationModal({ open, onClose, onCreated }: { open: boolean; 
           <Input type="email" value={values.email} onChange={set('email')} />
         </Field>
         <Field label="Initial password" required hint="Upper and lower case letters and a number; share it securely. They set up their authenticator app at the first sign-in." className="sm:col-span-2">
-          <Input type="password" autoComplete="new-password" value={values.password} onChange={set('password')} />
+          <PasswordInput autoComplete="new-password" value={values.password} onChange={set('password')} />
         </Field>
       </div>
     </Modal>
@@ -457,7 +459,7 @@ function PersonModal({ open, onClose, title, description, organizationId }: { op
           <Input type="email" value={values.email} onChange={set('email')} />
         </Field>
         <Field label="Initial password" required hint="Upper and lower case letters and a number; share it securely. They set up their authenticator app at the first sign-in." className="sm:col-span-2">
-          <Input type="password" autoComplete="new-password" value={values.password} onChange={set('password')} />
+          <PasswordInput autoComplete="new-password" value={values.password} onChange={set('password')} />
         </Field>
       </div>
     </Modal>

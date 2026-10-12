@@ -1,8 +1,22 @@
 'use client';
 
-import { Activity, AlertTriangle, Bug, CheckCircle2, Clock, Flag, ListTodo, PieChart, Users, Wallet, BarChart3 } from 'lucide-react';
+import {
+  Activity,
+  AlertTriangle,
+  Bug,
+  CheckCircle2,
+  Clock,
+  Flag,
+  ListTodo,
+  PieChart,
+  Users,
+  Wallet,
+  BarChart3,
+} from 'lucide-react';
 import type { ReactNode } from 'react';
 import { ActivityFeed } from '@/features/activity/components/activity-feed';
+import { useSession } from '@/features/auth/api';
+import { OrgRole } from '@/shared/constants/domain';
 import { errorMessage } from '@/shared/lib/api-client';
 import { cn, formatDate, formatMinutes, formatShortDate, fullName, minutesToHours } from '@/shared/lib/utils';
 import { Avatar } from '@/shared/ui/avatar';
@@ -19,6 +33,9 @@ const WORKLOAD_SHOWN = 5;
 export function ProjectOverview({ projectId }: { projectId: string }) {
   const { data: project } = useProject(projectId);
   const { data, isLoading, isError, error, refetch } = useProjectDashboard(projectId);
+  const { data: session } = useSession();
+  // Clients see progress, budget and milestones; the team's workload and activity stay internal.
+  const clientView = session?.role === OrgRole.VIEWER;
 
   if (isLoading) return <Spinner />;
   if (isError || !data) return <ErrorState message={errorMessage(error)} onRetry={refetch} />;
@@ -35,7 +52,8 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
         <div className="mb-1 flex justify-between gap-2 text-sm">
           <span className="truncate font-medium">{fullName(row.user)}</span>
           <span className="shrink-0 text-xs text-muted">
-            {row.openTasks} open{row.overdueTasks ? <span className="text-danger"> · {row.overdueTasks} overdue</span> : null}
+            {row.openTasks} open
+            {row.overdueTasks ? <span className="text-danger"> · {row.overdueTasks} overdue</span> : null}
           </span>
         </div>
         <ProgressBar value={(row.openTasks / maxWorkload) * 100} />
@@ -49,17 +67,54 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
     <div className="space-y-5">
       {/* Compact KPI strip */}
       <Card className="grid grid-cols-2 overflow-hidden lg:grid-cols-4 lg:divide-x lg:divide-border [&>*:nth-child(-n+2)]:max-lg:border-b [&>*:nth-child(odd)]:max-lg:border-r">
-        <Kpi label="Open tasks" value={data.stats.openTasks} hint={`${data.stats.totalTasks} total`} icon={<ListTodo />} tone="bg-brand-soft text-brand" />
-        <Kpi label="Completed" value={data.stats.completedTasks} hint={`${data.stats.progress}% done`} icon={<CheckCircle2 />} tone="bg-success-soft text-success" />
-        <Kpi label="Overdue" value={data.stats.overdueTasks} icon={<AlertTriangle />} tone="bg-danger-soft text-danger" danger={data.stats.overdueTasks > 0} />
-        <Kpi label="Time logged" value={formatMinutes(data.loggedMinutes)} hint={`${formatMinutes(data.billableMinutes)} billable`} icon={<Clock />} tone="bg-warning-soft text-warning" />
+        <Kpi
+          label="Open tasks"
+          value={data.stats.openTasks}
+          hint={`${data.stats.totalTasks} total`}
+          icon={<ListTodo />}
+          tone="bg-brand-soft text-brand"
+        />
+        <Kpi
+          label="Completed"
+          value={data.stats.completedTasks}
+          hint={`${data.stats.progress}% done`}
+          icon={<CheckCircle2 />}
+          tone="bg-success-soft text-success"
+        />
+        <Kpi
+          label="Overdue"
+          value={data.stats.overdueTasks}
+          icon={<AlertTriangle />}
+          tone="bg-danger-soft text-danger"
+          danger={data.stats.overdueTasks > 0}
+        />
+        <Kpi
+          label="Time logged"
+          value={formatMinutes(data.loggedMinutes)}
+          hint={`${formatMinutes(data.billableMinutes)} billable`}
+          icon={<Clock />}
+          tone="bg-warning-soft text-warning"
+        />
       </Card>
 
       <div className="grid gap-5 xl:grid-cols-3">
-        <CollapsibleCard className="xl:col-span-2" title="Tasks by status" icon={<PieChart />} meta={`${data.stats.totalTasks} tasks`} storageKey="project-overview.status" bodyClassName="p-[var(--card-p)]">
+        <CollapsibleCard
+          className="xl:col-span-2"
+          title="Tasks by status"
+          icon={<PieChart />}
+          meta={`${data.stats.totalTasks} tasks`}
+          storageKey="project-overview.status"
+          bodyClassName="p-[var(--card-p)]"
+        >
           <DonutChart data={data.tasksByStatus} emptyLabel="No tasks yet" />
         </CollapsibleCard>
-        <CollapsibleCard title="Open tasks by priority" icon={<BarChart3 />} meta={openByPriority} storageKey="project-overview.priority" bodyClassName="p-[var(--card-p)]">
+        <CollapsibleCard
+          title="Open tasks by priority"
+          icon={<BarChart3 />}
+          meta={openByPriority}
+          storageKey="project-overview.priority"
+          bodyClassName="p-[var(--card-p)]"
+        >
           <BarList data={data.tasksByPriority} emptyLabel="No open tasks" />
         </CollapsibleCard>
       </div>
@@ -68,7 +123,11 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
         <CollapsibleCard
           title="Milestones"
           icon={<Flag />}
-          meta={data.milestones.next ? `Next: ${formatShortDate(data.milestones.next.dueDate)}` : `${data.milestones.completed}/${data.milestones.total} done`}
+          meta={
+            data.milestones.next
+              ? `Next: ${formatShortDate(data.milestones.next.dueDate)}`
+              : `${data.milestones.completed}/${data.milestones.total} done`
+          }
           storageKey="project-overview.milestones"
           bodyClassName="space-y-3 p-[var(--card-p)]"
         >
@@ -104,7 +163,10 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
                 {minutesToHours(data.loggedMinutes)}h {budgetMinutes ? `(${budgetUsed}%)` : ''}
               </span>
             </div>
-            <ProgressBar value={budgetUsed} color={budgetUsed > 100 ? 'var(--danger)' : budgetUsed > 90 ? 'var(--warning)' : undefined} />
+            <ProgressBar
+              value={budgetUsed}
+              color={budgetUsed > 100 ? 'var(--danger)' : budgetUsed > 90 ? 'var(--warning)' : undefined}
+            />
           </div>
           <Row label="Budgeted">{data.project.budgetHours ? `${data.project.budgetHours}h` : '—'}</Row>
           <Row label="Estimated effort">{data.estimatedHours}h</Row>
@@ -117,43 +179,74 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
           </Row>
         </CollapsibleCard>
 
-        <CollapsibleCard title="Open issues by severity" icon={<Bug />} meta={openIssues} storageKey="project-overview.issues" bodyClassName="p-[var(--card-p)]">
+        <CollapsibleCard
+          title="Open issues by severity"
+          icon={<Bug />}
+          meta={openIssues}
+          storageKey="project-overview.issues"
+          bodyClassName="p-[var(--card-p)]"
+        >
           <BarList data={data.issuesBySeverity} emptyLabel="No open issues" />
         </CollapsibleCard>
       </div>
 
-      <div className="grid items-start gap-5 xl:grid-cols-3">
-        <CollapsibleCard
-          className="xl:col-span-2"
-          title="Team workload"
-          description="Open tasks per member"
-          icon={<Users />}
-          meta={`${data.workload.length} members`}
-          storageKey="project-overview.workload"
-          bodyClassName="space-y-3 p-[var(--card-p)]"
-        >
-          {workload.slice(0, WORKLOAD_SHOWN).map(workloadRow)}
-          {workload.length > WORKLOAD_SHOWN && (
-            <Disclosure label={`Show ${workload.length - WORKLOAD_SHOWN} more`}>
-              <div className="space-y-3">{workload.slice(WORKLOAD_SHOWN).map(workloadRow)}</div>
-            </Disclosure>
-          )}
-        </CollapsibleCard>
-        <CollapsibleCard title="Recent activity" icon={<Activity />} storageKey="project-overview.activity" bodyClassName="p-[var(--card-p)]">
-          <ActivityFeed projectId={projectId} pageSize={6} paginated={false} />
-        </CollapsibleCard>
-      </div>
+      {!clientView && (
+        <div className="grid items-start gap-5 xl:grid-cols-3">
+          <CollapsibleCard
+            className="xl:col-span-2"
+            title="Team workload"
+            description="Open tasks per member"
+            icon={<Users />}
+            meta={`${data.workload.length} members`}
+            storageKey="project-overview.workload"
+            bodyClassName="space-y-3 p-[var(--card-p)]"
+          >
+            {workload.slice(0, WORKLOAD_SHOWN).map(workloadRow)}
+            {workload.length > WORKLOAD_SHOWN && (
+              <Disclosure label={`Show ${workload.length - WORKLOAD_SHOWN} more`}>
+                <div className="space-y-3">{workload.slice(WORKLOAD_SHOWN).map(workloadRow)}</div>
+              </Disclosure>
+            )}
+          </CollapsibleCard>
+          <CollapsibleCard
+            title="Recent activity"
+            icon={<Activity />}
+            storageKey="project-overview.activity"
+            bodyClassName="p-[var(--card-p)]"
+          >
+            <ActivityFeed projectId={projectId} pageSize={6} paginated={false} />
+          </CollapsibleCard>
+        </div>
+      )}
     </div>
   );
 }
 
-function Kpi({ label, value, hint, icon, tone, danger }: { label: string; value: ReactNode; hint?: string; icon: ReactNode; tone: string; danger?: boolean }) {
+function Kpi({
+  label,
+  value,
+  hint,
+  icon,
+  tone,
+  danger,
+}: {
+  label: string;
+  value: ReactNode;
+  hint?: string;
+  icon: ReactNode;
+  tone: string;
+  danger?: boolean;
+}) {
   return (
     <div className="flex items-center gap-3 border-border px-4 py-3">
-      <span className={cn('flex size-8 shrink-0 items-center justify-center rounded-ui [&_svg]:size-4', tone)}>{icon}</span>
+      <span className={cn('flex size-8 shrink-0 items-center justify-center rounded-ui [&_svg]:size-4', tone)}>
+        {icon}
+      </span>
       <div className="min-w-0">
         <p className="flex items-baseline gap-2">
-          <span className={cn('text-lg font-semibold tabular-nums leading-tight', danger && 'text-danger')}>{value}</span>
+          <span className={cn('text-lg font-semibold tabular-nums leading-tight', danger && 'text-danger')}>
+            {value}
+          </span>
           {hint && <span className="truncate text-xs text-muted">{hint}</span>}
         </p>
         <p className="truncate text-xs text-muted">{label}</p>

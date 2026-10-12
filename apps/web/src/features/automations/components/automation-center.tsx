@@ -14,6 +14,7 @@ import { Dropdown, DropdownItem, DropdownSeparator } from '@/shared/ui/dropdown'
 import { EmptyState, ErrorState, Spinner } from '@/shared/ui/feedback';
 import { Field, Input, Select } from '@/shared/ui/form';
 import { ConfirmDialog, Modal } from '@/shared/ui/modal';
+import { Switch } from '@/shared/ui/switch';
 import { useAutomations, useDeleteAutomation, useSaveAutomation, useToggleAutomation } from '../api';
 import { ACTIONS, TRIGGERS, type Automation, type AutomationAction, type AutomationInput, type AutomationTrigger, type AutomationValueKind } from '../types';
 
@@ -259,23 +260,6 @@ export function AutomationCenter({ projectId }: { projectId: string }) {
         onClose={() => setDeleting(null)}
       />
     </div>
-  );
-}
-
-function Switch({ checked, onChange, disabled, label }: { checked: boolean; onChange: (value: boolean) => void; disabled?: boolean; label: string }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      title={label}
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
-      className={cn('relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50', checked ? 'bg-success' : 'bg-border-strong')}
-    >
-      <span className={cn('absolute top-0.5 size-5 rounded-full bg-white shadow-ui-sm transition-[left]', checked ? 'left-[22px]' : 'left-0.5')} />
-    </button>
   );
 }
 

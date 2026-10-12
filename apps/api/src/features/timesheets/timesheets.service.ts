@@ -2,7 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { Prisma, TimeEntry } from '@prisma/client';
 import { ActivityAction, ApprovalStatus, EntityType, NotificationType } from '../../common/constants/domain.constants';
 import { hasPermission, Permission } from '../../common/constants/permissions.constants';
-import { isCoordinator, OrgRole } from '../../common/constants/roles.constants';
+import { isCoordinator, OrgRole, PlatformRole } from '../../common/constants/roles.constants';
 import { NotificationLinks } from '../../common/events/domain-events';
 import { EventPublisher } from '../../common/events/event-publisher.service';
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
@@ -36,6 +36,31 @@ export class TimesheetsService {
     private readonly pagination: PaginationService,
     private readonly events: EventPublisher,
   ) {}
+
+  /**
+   * People whose time can be filtered on: active members of the organization and the root admins
+   * working on its projects (they belong to no organization, so the people list leaves them out).
+   */
+  async people(user: AuthenticatedUser, projectId?: string) {
+    if (projectId) await this.access.assertCanView(user, projectId);
+    const onProjects: Prisma.UserWhereInput = {
+      memberships: { some: projectId ? { projectId } : { project: { organizationId: user.organizationId } } },
+    };
+    return this.prisma.user.findMany({
+      where: {
+        isActive: true,
+        role: { not: OrgRole.VIEWER },
+        OR: [
+          projectId ? onProjects : { organizationId: user.organizationId },
+          { role: PlatformRole.ROOT, ...onProjects },
+          // Anyone with time logged here, so past entries stay filterable.
+          { timeEntries: { some: projectId ? { projectId } : { project: { organizationId: user.organizationId } } } },
+        ],
+      },
+      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+      select: USER_SUMMARY_SELECT,
+    });
+  }
 
   async findAll(user: AuthenticatedUser, query: TimeEntryQueryDto) {
     const page = this.pagination.resolve(query.page, query.limit);

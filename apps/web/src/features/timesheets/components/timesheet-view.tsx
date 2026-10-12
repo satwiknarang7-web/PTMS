@@ -6,7 +6,6 @@ import { useMemo, useState } from 'react';
 import { useSession } from '@/features/auth/api';
 import { usePermissions } from '@/features/auth/hooks/use-permissions';
 import { useProject } from '@/features/projects/api';
-import { useActiveUsers } from '@/features/users/api';
 import { appConfig } from '@/shared/config/env';
 import { ApprovalStatus, Permission } from '@/shared/constants/domain';
 import { errorMessage } from '@/shared/lib/api-client';
@@ -26,7 +25,7 @@ import { Field, Input, Select } from '@/shared/ui/form';
 import { Pagination } from '@/shared/ui/layout';
 import { ConfirmDialog } from '@/shared/ui/modal';
 import { Table, Td, Th, Tr } from '@/shared/ui/table';
-import { useDeleteTimeEntry, useReviewTimeEntry, useTimeEntries, useTimeSummary } from '../api';
+import { useDeleteTimeEntry, useReviewTimeEntry, useTimeEntries, useTimesheetPeople, useTimeSummary } from '../api';
 import type { TimeEntry } from '../types';
 import { TimeEntryModal } from './time-entry-modal';
 
@@ -92,7 +91,7 @@ export function TimesheetView({ projectId }: { projectId?: string }) {
   const { data: project } = useProject(projectId ?? '');
   const canSeeOthers = can(Permission.TIMESHEETS_VIEW_ALL) || !!project?.access.canManage;
   const canApprove = can(Permission.TIMESHEETS_APPROVE) || !!project?.access.canManage;
-  const { data: users } = useActiveUsers();
+  const { data: people } = useTimesheetPeople(projectId, canSeeOthers);
 
   const [preset, setPreset] = useState<RangePreset>('this-week');
   const [custom, setCustom] = useState({ from: iso(addDays(new Date(), -13)), to: iso(new Date()) });
@@ -146,7 +145,7 @@ export function TimesheetView({ projectId }: { projectId?: string }) {
             </div>
           )}
           <FilterPopover
-            summary={[canSeeOthers && userId ? fullName(users?.data.find((u) => u.id === userId)) : null, approvalStatus ? humanize(approvalStatus) : null].filter(Boolean).join(' · ') || undefined}
+            summary={[canSeeOthers && userId ? fullName(people?.find((u) => u.id === userId)) : null, approvalStatus ? humanize(approvalStatus) : null].filter(Boolean).join(' · ') || undefined}
             activeCount={(canSeeOthers && userId ? 1 : 0) + (approvalStatus ? 1 : 0)}
             onReset={() => {
               setUserId('');
@@ -164,7 +163,7 @@ export function TimesheetView({ projectId }: { projectId?: string }) {
                   }}
                 >
                   <option value="">Everyone</option>
-                  {users?.data.map((u) => (
+                  {people?.map((u) => (
                     <option key={u.id} value={u.id}>
                       {fullName(u)}
                     </option>

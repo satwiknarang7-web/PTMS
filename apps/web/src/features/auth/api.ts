@@ -22,6 +22,10 @@ export const authApi = {
   activateTwoFactor: (input: { challenge: string; code: string }) =>
     api.post<{ status: 'ok'; recoveryCodes: string[] }>('/auth/two-factor/activate', input, { skipAuthRefresh: true }),
   twoFactorStatus: () => api.get<TwoFactorStatus>('/auth/two-factor'),
+  /** Profile: turn two-step sign-in on while signed in. */
+  beginOwnTwoFactor: () => api.post<TwoFactorSetup>('/auth/two-factor/enable'),
+  confirmOwnTwoFactor: (code: string) => api.post<{ recoveryCodes: string[] }>('/auth/two-factor/enable/confirm', { code }),
+  disableOwnTwoFactor: (code: string) => api.post<void>('/auth/two-factor/disable', { code }),
   regenerateRecoveryCodes: (code: string) => api.post<{ recoveryCodes: string[] }>('/auth/two-factor/recovery-codes', { code }),
 };
 

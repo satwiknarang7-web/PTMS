@@ -11,6 +11,7 @@ import {
 import { NotificationLinks, TaskChangedEvent, TaskChangeKind } from '../../common/events/domain-events';
 import { EventPublisher } from '../../common/events/event-publisher.service';
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
+import { OrgRole, PlatformRole } from '../../common/constants/roles.constants';
 import { PaginationService } from '../../common/pagination/pagination.service';
 import { fullName } from '../../common/utils/string.util';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -157,7 +158,7 @@ export class TasksService {
 
     if (data.statusId) {
       this.recordActivity(user, task, ActivityAction.STATUS_CHANGED, `moved ${this.ref(task)} to ${task.status.name}`);
-      this.notifyStatusChange(user, task);
+      await this.notifyStatusChange(user, task);
     } else {
       this.recordActivity(user, task, ActivityAction.UPDATED, `updated task ${this.ref(task)} ${task.title}`);
     }
@@ -183,7 +184,7 @@ export class TasksService {
     const task = await this.prisma.task.update({ where: { id }, data, include: TASK_LIST_INCLUDE });
     if (data.statusId) {
       this.recordActivity(user, task, ActivityAction.STATUS_CHANGED, `moved ${this.ref(task)} to ${task.status.name}`);
-      this.notifyStatusChange(user, task);
+      await this.notifyStatusChange(user, task);
       this.publishChange(user, task, 'status_changed', { statusId: task.statusId });
     }
     return flattenAssignees(task);
@@ -413,10 +414,24 @@ export class TasksService {
     });
   }
 
-  /** The task's creator and assignees follow its progress. */
-  private notifyStatusChange(user: AuthenticatedUser, task: NotifiableTask & { createdById: string; status: { name: string } }): void {
+  /**
+   * The task's creator and assignees follow its progress, and so do the people running the project:
+   * its owner and the coordinators (and root admins) on it, whoever made the change.
+   */
+  private async notifyStatusChange(user: AuthenticatedUser, task: NotifiableTask & { createdById: string; status: { name: string } }): Promise<void> {
+    const project = await this.prisma.project.findUnique({
+      where: { id: task.projectId },
+      select: {
+        ownerId: true,
+        members: { where: { user: { isActive: true, role: { in: [OrgRole.PROJECT_COORDINATOR, PlatformRole.ROOT] } } }, select: { userId: true } },
+      },
+    });
     this.events.notify({
-      recipientIds: [task.createdById, ...task.assignees.map((a) => a.user.id)],
+      recipientIds: [
+        task.createdById,
+        ...task.assignees.map((a) => a.user.id),
+        ...(project ? [project.ownerId, ...project.members.map((m) => m.userId)] : []),
+      ],
       actorId: user.id,
       type: NotificationType.TASK_STATUS_CHANGED,
       title: `${this.ref(task)} moved to ${task.status.name}`,

@@ -66,7 +66,7 @@ export class AuthService {
     this.attempts.reset(email);
     this.assertCanSignIn(user);
 
-    if (user.twoFactorEnabledAt || this.twoFactor.required) {
+    if (user.twoFactorEnabledAt || (await this.twoFactor.isRequired())) {
       const payload: ChallengePayload = { sub: user.id, typ: 'two-factor', rem: dto.remember ?? false };
       const challenge = await this.jwt.signAsync(payload, { secret: this.challengeSecret, expiresIn: CHALLENGE_TTL_SECONDS });
       return { status: user.twoFactorEnabledAt ? 'two_factor_required' : 'two_factor_setup_required', challenge };
@@ -109,9 +109,30 @@ export class AuthService {
     return {
       enabled: !!user.twoFactorEnabledAt,
       enabledAt: user.twoFactorEnabledAt,
-      required: this.twoFactor.required,
+      required: await this.twoFactor.isRequired(),
       recoveryCodesLeft: this.twoFactor.remainingRecoveryCodes(user),
     };
+  }
+
+  /** Profile: starts setting up an authenticator while signed in (when two-step is optional, or after a reset). */
+  async beginOwnTwoFactorSetup(userId: string) {
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    if (user.twoFactorEnabledAt) throw new BadRequestException('Two-step sign-in is already on');
+    return this.twoFactor.beginSetup(user);
+  }
+
+  async activateOwnTwoFactor(userId: string, code: string) {
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    if (user.twoFactorEnabledAt) throw new BadRequestException('Two-step sign-in is already on');
+    return { recoveryCodes: await this.twoFactor.activate(user, code) };
+  }
+
+  /** Profile: turns two-step sign-in off, allowed only while root has not made it required. */
+  async disableOwnTwoFactor(userId: string, code: string): Promise<void> {
+    if (await this.twoFactor.isRequired()) throw new ForbiddenException('Two-step sign-in is required for everyone, so it cannot be turned off');
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    if (!user.twoFactorEnabledAt) throw new BadRequestException('Two-step sign-in is already off');
+    await this.twoFactor.disable(user, code);
   }
 
   async regenerateRecoveryCodes(userId: string, code: string) {

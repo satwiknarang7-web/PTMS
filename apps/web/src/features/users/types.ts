@@ -72,6 +72,16 @@ export interface UserDetails {
   projects: (ProjectRef & { isArchived: boolean; endDate: string | null; status: LookupRef; joinedAt: string; openTasks: number })[];
   tasks: { id: string; number: number; title: string; dueDate: string | null; progress: number; estimatedHours: number | null; status: LookupRef; priority: LookupRef; project: ProjectRef }[];
   issues: { id: string; number: number; title: string; dueDate: string | null; status: LookupRef; severity: LookupRef; project: ProjectRef }[];
+  reportedIssues: {
+    id: string;
+    number: number;
+    title: string;
+    createdAt: string;
+    status: LookupRef;
+    severity: LookupRef;
+    assignee: { id: string; firstName: string; lastName: string; avatarUrl: string | null } | null;
+    project: ProjectRef;
+  }[];
   recentTime: { id: string; date: string; minutes: number; notes: string | null; approvalStatus: string; project: ProjectRef }[];
   activity: { id: string; summary: string; createdAt: string; project: { id: string; name: string } | null }[];
 }

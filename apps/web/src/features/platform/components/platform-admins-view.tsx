@@ -10,6 +10,7 @@ import { Badge } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { EmptyState, ErrorState, Spinner } from '@/shared/ui/feedback';
+import { PasswordInput } from '@/features/auth/components/password-input';
 import { Field, FormAlert, Input } from '@/shared/ui/form';
 import { PageHeader } from '@/shared/ui/layout';
 import { ConfirmDialog, Modal } from '@/shared/ui/modal';
@@ -184,7 +185,7 @@ function AddAdminModal({ open, onClose }: { open: boolean; onClose: () => void }
           <Input type="email" value={values.email} onChange={set('email')} />
         </Field>
         <Field label="Initial password" required hint="Share it securely. They set up their authenticator app at the first sign-in." className="sm:col-span-2">
-          <Input type="password" autoComplete="new-password" value={values.password} onChange={set('password')} />
+          <PasswordInput autoComplete="new-password" value={values.password} onChange={set('password')} />
         </Field>
       </div>
     </Modal>

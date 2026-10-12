@@ -53,37 +53,56 @@ interface TaskCalendarProps {
   storageKey?: string;
   /** Draw tasks across every day from start to due (otherwise on their due date only). */
   defaultSpans?: boolean;
+  /** Client (viewer) calendar: client meetings only, no tasks; they may schedule client meetings. */
+  clientView?: boolean;
 }
 
 const MAX_PER_DAY = 3;
 const DRAG_TYPE = 'application/x-task-id';
 
 /** Month calendar of tasks spanning their start → due dates; drag to reschedule. */
-export function TaskCalendar({ query, canEdit, showProject, meetings: meetingScope, storageKey = 'calendar', defaultSpans = true }: TaskCalendarProps) {
+export function TaskCalendar({
+  query,
+  canEdit,
+  showProject,
+  meetings: meetingScope,
+  storageKey = 'calendar',
+  defaultSpans = true,
+  clientView = false,
+}: TaskCalendarProps) {
   const { data: session } = useSession();
   const { can } = usePermissions();
   const weekStartsOn = session?.organization?.weekStartsOn ?? 1;
   const [dateParam] = useQueryParam('date');
-  const [month, setMonth] = useState<DateKey>(() => (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : todayKey()));
+  const [month, setMonth] = useState<DateKey>(() =>
+    dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : todayKey(),
+  );
   const [taskId, setTaskId] = useQueryParam('taskId');
   const [expandedDay, setExpandedDay] = useState<DateKey | null>(null);
   const [dropTarget, setDropTarget] = useState<DateKey | null>(null);
   const [openMeeting, setOpenMeeting] = useState<Meeting | null>(null);
   const [scheduling, setScheduling] = useState<DateKey | null>(null);
-  const [showTasks, toggleTasks] = useCollapsed(`${storageKey}.tasks`, true);
+  const [showTasksSetting, toggleTasks] = useCollapsed(`${storageKey}.tasks`, true);
+  const showTasks = showTasksSetting && !clientView;
   const [showMeetings, toggleMeetings] = useCollapsed(`${storageKey}.meetings`, true);
   const [trayOpen, toggleTray] = useCollapsed(`${storageKey}.unscheduled`, false);
   const [spans, toggleSpans] = useCollapsed(`${storageKey}.spans`, defaultSpans);
   const update = useQuickUpdateTask();
   const today = todayKey();
   const withMeetings = !!meetingScope;
-  const canSchedule = withMeetings && can(Permission.MEETINGS_MANAGE);
+  const canSchedule = withMeetings && (clientView || can(Permission.MEETINGS_MANAGE));
 
-  const { data, isLoading, isError, error, refetch } = useTasks({ ...query, limit: appConfig.boardPageSize, sortBy: 'dueDate', sortOrder: 'asc' });
+  const { data, isLoading, isError, error, refetch } = useTasks(
+    { ...query, limit: appConfig.boardPageSize, sortBy: 'dueDate', sortOrder: 'asc' },
+    !clientView,
+  );
   const tasks = useMemo(() => data?.data ?? [], [data]);
   const days = useMemo(() => monthGrid(month, weekStartsOn), [month, weekStartsOn]);
   const range = useMemo(
-    () => ({ from: new Date(`${days[0]}T00:00:00`).toISOString(), to: new Date(`${days[days.length - 1]}T23:59:59`).toISOString() }),
+    () => ({
+      from: new Date(`${days[0]}T00:00:00`).toISOString(),
+      to: new Date(`${days[days.length - 1]}T23:59:59`).toISOString(),
+    }),
     [days],
   );
   const meetingsQuery = useMeetings({ ...range, projectId: meetingScope?.projectId }, withMeetings);
@@ -130,7 +149,10 @@ export function TaskCalendar({ query, canEdit, showProject, meetings: meetingSco
     update.mutate({
       id: task.id,
       input,
-      preview: { dueDate: `${nextDue}T00:00:00.000Z`, ...(nextStart ? { startDate: `${nextStart}T00:00:00.000Z` } : {}) },
+      preview: {
+        dueDate: `${nextDue}T00:00:00.000Z`,
+        ...(nextStart ? { startDate: `${nextStart}T00:00:00.000Z` } : {}),
+      },
     });
   };
 
@@ -160,10 +182,20 @@ export function TaskCalendar({ query, canEdit, showProject, meetings: meetingSco
       <Card className="min-w-0 flex-1 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
           <div className="flex items-center gap-2">
-            <Button variant="secondary" size="icon" aria-label="Previous month" onClick={() => setMonth(shiftMonth(month, -1))}>
+            <Button
+              variant="secondary"
+              size="icon"
+              aria-label="Previous month"
+              onClick={() => setMonth(shiftMonth(month, -1))}
+            >
               <ChevronLeft />
             </Button>
-            <Button variant="secondary" size="icon" aria-label="Next month" onClick={() => setMonth(shiftMonth(month, 1))}>
+            <Button
+              variant="secondary"
+              size="icon"
+              aria-label="Next month"
+              onClick={() => setMonth(shiftMonth(month, 1))}
+            >
               <ChevronRight />
             </Button>
             <h2 className="ml-1 text-base font-semibold">{monthLabel(month)}</h2>
@@ -172,21 +204,28 @@ export function TaskCalendar({ query, canEdit, showProject, meetings: meetingSco
             </Button>
           </div>
           <div className="flex items-center gap-2">
-            <Dropdown
-              trigger={({ toggle, open }) => (
-                <Button variant="secondary" size="sm" onClick={toggle} aria-expanded={open}>
-                  <Eye /> Show
-                </Button>
-              )}
-            >
-              {() => (
-                <div className="space-y-2 p-2">
-                  {withMeetings && <Checkbox label="Tasks" checked={showTasks} onChange={toggleTasks} />}
-                  {withMeetings && <Checkbox label="Meetings" checked={showMeetings} onChange={toggleMeetings} />}
-                  <Checkbox label="Tasks across every day they run" checked={spans} disabled={!showTasks} onChange={toggleSpans} />
-                </div>
-              )}
-            </Dropdown>
+            {!clientView && (
+              <Dropdown
+                trigger={({ toggle, open }) => (
+                  <Button variant="secondary" size="sm" onClick={toggle} aria-expanded={open}>
+                    <Eye /> Show
+                  </Button>
+                )}
+              >
+                {() => (
+                  <div className="space-y-2 p-2">
+                    {withMeetings && <Checkbox label="Tasks" checked={showTasks} onChange={toggleTasks} />}
+                    {withMeetings && <Checkbox label="Meetings" checked={showMeetings} onChange={toggleMeetings} />}
+                    <Checkbox
+                      label="Tasks across every day they run"
+                      checked={spans}
+                      disabled={!showTasks}
+                      onChange={toggleSpans}
+                    />
+                  </div>
+                )}
+              </Dropdown>
+            )}
             {showTasks && (
               <Button variant={trayOpen ? 'secondary' : 'ghost'} size="sm" onClick={toggleTray} aria-pressed={trayOpen}>
                 <PanelRight /> Unscheduled{unscheduled.length ? ` (${unscheduled.length})` : ''}
@@ -209,7 +248,10 @@ export function TaskCalendar({ query, canEdit, showProject, meetings: meetingSco
           <div className="sm:min-w-[720px]">
             <div className="grid grid-cols-7 border-b border-border bg-surface-muted/50">
               {weekdayLabels(weekStartsOn).map((label) => (
-                <div key={label} className="px-1 py-2 text-center text-xs font-semibold uppercase tracking-wide text-muted sm:px-2 sm:text-left">
+                <div
+                  key={label}
+                  className="px-1 py-2 text-center text-xs font-semibold uppercase tracking-wide text-muted sm:px-2 sm:text-left"
+                >
                   <span className="sm:hidden">{label.slice(0, 1)}</span>
                   <span className="max-sm:hidden">{label}</span>
                 </div>
@@ -242,7 +284,9 @@ export function TaskCalendar({ query, canEdit, showProject, meetings: meetingSco
                     {/* Phones: the whole day is one tap target. */}
                     <button
                       type="button"
-                      aria-label={total ? `${total} items on ${day}` : canSchedule ? `Schedule a meeting on ${day}` : day}
+                      aria-label={
+                        total ? `${total} items on ${day}` : canSchedule ? `Schedule a meeting on ${day}` : day
+                      }
                       onClick={() => (total ? setExpandedDay(day) : canSchedule ? setScheduling(day) : undefined)}
                       className="absolute inset-0 sm:hidden"
                     />
@@ -288,7 +332,11 @@ export function TaskCalendar({ query, canEdit, showProject, meetings: meetingSco
                         <CalendarItem key={task.id} {...itemProps(task)} />
                       ))}
                       {total > MAX_PER_DAY && (
-                        <button type="button" onClick={() => setExpandedDay(day)} className="w-full rounded px-1.5 text-left text-xs font-medium text-muted hover:text-foreground">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedDay(day)}
+                          className="w-full rounded px-1.5 text-left text-xs font-medium text-muted hover:text-foreground"
+                        >
                           +{total - MAX_PER_DAY} more
                         </button>
                       )}
@@ -305,7 +353,9 @@ export function TaskCalendar({ query, canEdit, showProject, meetings: meetingSco
         <Card className="w-full shrink-0 xl:w-72">
           <div className="border-b border-border px-4 py-3">
             <h3 className="text-sm font-semibold">Unscheduled</h3>
-            <p className="text-xs text-muted">{canEdit ? 'Drag an item onto a day to schedule it.' : 'Items without dates.'}</p>
+            <p className="text-xs text-muted">
+              {canEdit ? 'Drag an item onto a day to schedule it.' : 'Items without dates.'}
+            </p>
           </div>
           <div className="scrollbar-thin max-h-[560px] space-y-1.5 overflow-y-auto p-3">
             {unscheduled.length ? (
@@ -320,7 +370,16 @@ export function TaskCalendar({ query, canEdit, showProject, meetings: meetingSco
         </Card>
       )}
 
-      <Modal open={!!expandedDay} onClose={() => setExpandedDay(null)} title={expandedDay ? new Date(`${expandedDay}T00:00:00Z`).toLocaleDateString(undefined, { dateStyle: 'full', timeZone: 'UTC' }) : ''} size="sm">
+      <Modal
+        open={!!expandedDay}
+        onClose={() => setExpandedDay(null)}
+        title={
+          expandedDay
+            ? new Date(`${expandedDay}T00:00:00Z`).toLocaleDateString(undefined, { dateStyle: 'full', timeZone: 'UTC' })
+            : ''
+        }
+        size="sm"
+      >
         <div className="space-y-1.5">
           {(expandedDay ? dayMeetings(expandedDay) : []).map((meeting) => (
             <MeetingChip
@@ -339,9 +398,18 @@ export function TaskCalendar({ query, canEdit, showProject, meetings: meetingSco
         </div>
       </Modal>
 
-      <MeetingDetailModal meeting={openMeeting && (meetingsQuery.data?.find((m) => m.id === openMeeting.id) ?? openMeeting)} onClose={() => setOpenMeeting(null)} />
+      <MeetingDetailModal
+        meeting={openMeeting && (meetingsQuery.data?.find((m) => m.id === openMeeting.id) ?? openMeeting)}
+        onClose={() => setOpenMeeting(null)}
+      />
       {canSchedule && (
-        <MeetingFormModal open={!!scheduling} onClose={() => setScheduling(null)} defaultDay={scheduling ?? undefined} defaultProjectId={meetingScope?.projectId ?? null} />
+        <MeetingFormModal
+          open={!!scheduling}
+          onClose={() => setScheduling(null)}
+          defaultDay={scheduling ?? undefined}
+          defaultProjectId={meetingScope?.projectId ?? null}
+          clientOnly={clientView}
+        />
       )}
       <TaskDetailDrawer taskId={taskId} onClose={() => setTaskId(null)} onOpenTask={setTaskId} />
     </div>

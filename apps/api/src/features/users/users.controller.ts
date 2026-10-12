@@ -16,6 +16,7 @@ import {
   UserQueryDto,
 } from './dto/user.dto';
 import { UsersService } from './users.service';
+import { ViewerAllowed } from '../../common/decorators/viewer-allowed.decorator';
 
 @ApiTags('Users')
 @Controller('users')
@@ -29,12 +30,14 @@ export class UsersController {
   }
 
   @Patch('me')
+  @ViewerAllowed()
   @ForAccounts(AccountScope.ANY)
   updateProfile(@CurrentUser('id') userId: string, @Body() dto: UpdateProfileDto) {
     return this.users.updateProfile(userId, dto);
   }
 
   @Post('me/password')
+  @ViewerAllowed()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ForAccounts(AccountScope.ANY)
   changePassword(@CurrentUser('id') userId: string, @Body() dto: ChangePasswordDto) {

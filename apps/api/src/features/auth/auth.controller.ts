@@ -11,6 +11,7 @@ import { AuthCookieService } from './auth-cookie.service';
 import { AuthService } from './auth.service';
 import { AuthenticatorCodeDto, ChallengeDto, LoginDto, TwoFactorCodeDto } from './dto/auth.dto';
 import { ClientMeta } from './token.service';
+import { ViewerAllowed } from '../../common/decorators/viewer-allowed.decorator';
 
 /** Stricter rate limit for credential endpoints; resolved lazily at request time once env is loaded. */
 const authThrottle = () =>
@@ -22,6 +23,7 @@ const authThrottle = () =>
   });
 
 @ApiTags('Auth')
+@ViewerAllowed()
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -87,6 +89,28 @@ export class AuthController {
   @ForAccounts(AccountScope.ANY)
   twoFactorStatus(@CurrentUser('id') userId: string) {
     return this.auth.twoFactorStatus(userId);
+  }
+
+  /** Profile: QR code to turn two-step sign-in on while signed in. */
+  @Post('two-factor/enable')
+  @HttpCode(HttpStatus.OK)
+  @ForAccounts(AccountScope.ANY)
+  beginOwnTwoFactorSetup(@CurrentUser('id') userId: string) {
+    return this.auth.beginOwnTwoFactorSetup(userId);
+  }
+
+  @Post('two-factor/enable/confirm')
+  @HttpCode(HttpStatus.OK)
+  @ForAccounts(AccountScope.ANY)
+  activateOwnTwoFactor(@CurrentUser('id') userId: string, @Body() dto: AuthenticatorCodeDto) {
+    return this.auth.activateOwnTwoFactor(userId, dto.code);
+  }
+
+  @Post('two-factor/disable')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ForAccounts(AccountScope.ANY)
+  disableOwnTwoFactor(@CurrentUser('id') userId: string, @Body() dto: AuthenticatorCodeDto) {
+    return this.auth.disableOwnTwoFactor(userId, dto.code);
   }
 
   @Post('two-factor/recovery-codes')

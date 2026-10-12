@@ -19,7 +19,7 @@ import { PageHeader } from '@/shared/ui/layout';
 import { useChangePassword, useUpdateProfile } from '../api';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { authApi } from '@/features/auth/api';
-import { RecoveryCodes } from '@/features/auth/components/two-factor-steps';
+import { AuthenticatorSetup, RecoveryCodes } from '@/features/auth/components/two-factor-steps';
 import { FormAlert } from '@/shared/ui/form';
 
 export function ProfileView() {
@@ -172,11 +172,12 @@ function ChangePasswordCard() {
   );
 }
 
-/** Two-step sign-in status and fresh recovery codes (old ones stop working). */
+/** Two-step sign-in: turn it on or off (when root has not made it required) and make fresh recovery codes. */
 function TwoFactorCard() {
   const status = useQuery({ queryKey: ['auth', 'two-factor'], queryFn: authApi.twoFactorStatus });
   const [code, setCode] = useState('');
   const [codes, setCodes] = useState<string[] | null>(null);
+  const [settingUp, setSettingUp] = useState(0);
   const regenerate = useMutation({
     mutationFn: authApi.regenerateRecoveryCodes,
     meta: { silentError: true },
@@ -186,7 +187,16 @@ function TwoFactorCard() {
       void status.refetch();
     },
   });
+  const disable = useMutation({
+    mutationFn: authApi.disableOwnTwoFactor,
+    meta: { silentError: true, successMessage: 'Two-step sign-in turned off' },
+    onSuccess: () => {
+      setCode('');
+      void status.refetch();
+    },
+  });
   const data = status.data;
+  const codeValid = code.length === 6;
 
   return (
     <CollapsibleCard
@@ -196,12 +206,30 @@ function TwoFactorCard() {
       description={
         data?.enabled
           ? `On since ${formatDateTime(data.enabledAt)} · ${data.recoveryCodesLeft} recovery code${data.recoveryCodesLeft === 1 ? '' : 's'} left`
-          : 'Not set up yet: you will scan a QR code at your next sign-in.'
+          : data?.required
+            ? 'Not set up yet: you will scan a QR code at your next sign-in.'
+            : 'Off: you sign in with your password only.'
       }
       bodyClassName="space-y-4 p-[var(--card-p)]"
     >
       {codes ? (
         <RecoveryCodes codes={codes} onDone={() => setCodes(null)} doneLabel="Done" />
+      ) : settingUp ? (
+        <div className="max-w-md">
+          <AuthenticatorSetup
+            setupKey={`profile-${settingUp}`}
+            load={authApi.beginOwnTwoFactor}
+            activate={authApi.confirmOwnTwoFactor}
+            intro="Each sign-in will also ask for a code from an authenticator app on your phone."
+            submitLabel="Turn on"
+            doneLabel="Done"
+            onDone={() => {
+              setSettingUp(0);
+              void status.refetch();
+            }}
+            onBack={() => setSettingUp(0)}
+          />
+        </div>
       ) : data?.enabled ? (
         <>
           <p className="text-sm text-muted">
@@ -210,6 +238,7 @@ function TwoFactorCard() {
             Lost your phone? Ask an admin to reset two-step sign-in.
           </p>
           {regenerate.isError && <FormAlert>{errorMessage(regenerate.error)}</FormAlert>}
+          {disable.isError && <FormAlert>{errorMessage(disable.error)}</FormAlert>}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
             <Field label="Code from your authenticator app" className="sm:w-56">
               <Input
@@ -221,18 +250,28 @@ function TwoFactorCard() {
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
               />
             </Field>
-            <Button
-              variant="secondary"
-              disabled={code.length !== 6}
-              loading={regenerate.isPending}
-              onClick={() => regenerate.mutate(code)}
-            >
+            <Button variant="secondary" disabled={!codeValid} loading={regenerate.isPending} onClick={() => regenerate.mutate(code)}>
               Make new recovery codes
             </Button>
+            {!data.required && (
+              <Button variant="danger" disabled={!codeValid} loading={disable.isPending} onClick={() => disable.mutate(code)}>
+                Turn off
+              </Button>
+            )}
           </div>
+          {data.required && <p className="text-xs text-muted">Your administrator requires two-step sign-in, so it cannot be turned off.</p>}
         </>
       ) : (
-        <p className="text-sm text-muted">Sign out and sign in again to set up your authenticator app.</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted">
+            {data?.required
+              ? 'Your administrator requires two-step sign-in. Set it up now, or you will be asked at your next sign-in.'
+              : 'Add a code from an authenticator app to your sign-in, so a stolen password alone is not enough.'}
+          </p>
+          <Button onClick={() => setSettingUp(Date.now())} disabled={!data}>
+            Turn on
+          </Button>
+        </div>
       )}
     </CollapsibleCard>
   );

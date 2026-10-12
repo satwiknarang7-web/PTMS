@@ -213,6 +213,17 @@ export class ProjectsService {
           ? `${dto.isArchived ? 'archived' : 'restored'} project ${updated.name}`
           : `updated project ${updated.name}`,
     });
+    if (statusChanged) {
+      const members = await this.prisma.projectMember.findMany({ where: { projectId: id, user: { isActive: true } }, select: { userId: true } });
+      this.events.notify({
+        recipientIds: [updated.ownerId, ...members.map((m) => m.userId)],
+        actorId: user.id,
+        type: NotificationType.PROJECT_STATUS_CHANGED,
+        title: `${updated.name} is now ${updated.status.name}`,
+        body: `${fullName(user)} changed the project status`,
+        link: NotificationLinks.project(id),
+      });
+    }
     return updated;
   }
 

@@ -3,7 +3,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ApprovalStatus } from '@/shared/constants/domain';
 import { api } from '@/shared/lib/api-client';
-import type { Paginated } from '@/shared/types/api';
+import type { Paginated, UserSummary } from '@/shared/types/api';
 import type { TimeEntry, TimeEntryInput, TimeEntryQuery, TimeSummary } from './types';
 
 export const timesheetKeys = {
@@ -17,6 +17,16 @@ export function useTimeEntries(query: TimeEntryQuery) {
     queryKey: timesheetKeys.list(query),
     queryFn: () => api.get<Paginated<TimeEntry>>('/time-entries', { ...query }),
     placeholderData: keepPreviousData,
+  });
+}
+
+/** People to filter time by: the organization plus root admins working on its projects. */
+export function useTimesheetPeople(projectId?: string, enabled = true) {
+  return useQuery({
+    queryKey: ['time-entries', 'people', projectId ?? null] as const,
+    queryFn: () => api.get<UserSummary[]>('/time-entries/people', projectId ? { projectId } : undefined),
+    enabled,
+    staleTime: 60_000,
   });
 }
 

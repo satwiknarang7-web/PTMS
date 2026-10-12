@@ -11,6 +11,7 @@ import {
   UpdateProjectDto,
 } from './dto/project.dto';
 import { ProjectsService } from './projects.service';
+import { ViewerAllowed } from '../../common/decorators/viewer-allowed.decorator';
 
 @ApiTags('Projects')
 @Controller('projects')
@@ -18,28 +19,33 @@ export class ProjectsController {
   constructor(private readonly projects: ProjectsService) {}
 
   @Get()
+  @ViewerAllowed()
   findAll(@CurrentUser() user: AuthenticatedUser, @Query() query: ProjectQueryDto) {
     return this.projects.findAll(user, query);
   }
 
   @Get('summary')
+  @ViewerAllowed()
   summary(@CurrentUser() user: AuthenticatedUser) {
     return this.projects.summary(user);
   }
 
   /** Lightweight list of every visible, active project for the sidebar. */
   @Get('navigation')
+  @ViewerAllowed()
   navigation(@CurrentUser() user: AuthenticatedUser) {
     return this.projects.navigation(user);
   }
 
   @Put(':id/favorite')
+  @ViewerAllowed()
   @HttpCode(HttpStatus.NO_CONTENT)
   favorite(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.projects.setFavorite(user, id, true);
   }
 
   @Delete(':id/favorite')
+  @ViewerAllowed()
   @HttpCode(HttpStatus.NO_CONTENT)
   unfavorite(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.projects.setFavorite(user, id, false);
@@ -59,6 +65,7 @@ export class ProjectsController {
   }
 
   @Get(':id')
+  @ViewerAllowed()
   findOne(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.projects.findOne(user, id);
   }

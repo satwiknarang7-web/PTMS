@@ -23,6 +23,7 @@ import { Button } from '@/shared/ui/button';
 import { Card, CardHeader } from '@/shared/ui/card';
 import { DropdownItem, DropdownSeparator } from '@/shared/ui/dropdown';
 import { ErrorState, Spinner } from '@/shared/ui/feedback';
+import { PasswordInput } from '@/features/auth/components/password-input';
 import { Field, Input, Select } from '@/shared/ui/form';
 import { Pagination } from '@/shared/ui/layout';
 import { ConfirmDialog, Modal } from '@/shared/ui/modal';
@@ -177,7 +178,7 @@ export function UserManagement() {
                                   <DropdownItem onClick={() => { close(); setResetting(user); }}>
                                     <KeyRound /> Reset password
                                   </DropdownItem>
-                                  {canManageCoordinators && user.id !== session?.id && (
+                                  {canManageCoordinators && user.id !== session?.id && user.role !== OrgRole.VIEWER && (
                                     <DropdownItem
                                       onClick={() => {
                                         close();
@@ -224,7 +225,7 @@ export function UserManagement() {
         user={editing}
         onClose={() => setEditing(null)}
         isSelf={editing !== 'new' && editing?.id === session?.id}
-        roles={canManageCoordinators ? ORG_ROLES : [OrgRole.MEMBER]}
+        roles={canManageCoordinators ? ORG_ROLES : [OrgRole.MEMBER, OrgRole.VIEWER]}
       />
       <ResetPasswordModal user={resetting} onClose={() => setResetting(null)} />
       <ConfirmDialog
@@ -256,7 +257,7 @@ const userSchema = z.object({
   firstName: z.string().trim().min(1, 'Required'),
   lastName: z.string().trim().min(1, 'Required'),
   jobTitle: z.string().optional(),
-  role: z.enum([OrgRole.PROJECT_COORDINATOR, OrgRole.MEMBER]),
+  role: z.enum([OrgRole.PROJECT_COORDINATOR, OrgRole.MEMBER, OrgRole.VIEWER]),
   hourlyRate: z.string().optional(),
   password: z.string().optional(),
 });
@@ -353,7 +354,7 @@ function UserFormModal({ user, onClose, isSelf, roles }: { user: User | 'new' | 
         </Field>
         {isNew && (
           <Field label="Initial password" required error={errors.password?.message} hint="Share it with them securely; they set up their authenticator app at the first sign-in." className="sm:col-span-2">
-            <Input type="password" autoComplete="new-password" {...form.register('password')} />
+            <PasswordInput autoComplete="new-password" {...form.register('password')} />
           </Field>
         )}
       </form>
@@ -397,7 +398,7 @@ function ResetPasswordModal({ user, onClose }: { user: User | null; onClose: () 
       }
     >
       <Field label="New password" error={error}>
-        <Input type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <PasswordInput autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
       </Field>
     </Modal>
   );

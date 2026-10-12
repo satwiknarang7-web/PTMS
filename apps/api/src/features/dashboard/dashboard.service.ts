@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Lookup, Prisma } from '@prisma/client';
 import { LookupType, StatusCategory } from '../../common/constants/domain.constants';
+import { isViewer } from '../../common/constants/roles.constants';
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { addDays, isOverdue, overdueCutoff, startOfWeekUtc } from '../../common/utils/date.util';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -198,7 +199,8 @@ export class DashboardService {
       tasksByPriority: this.mapCounts(lookups, LookupType.PRIORITY, byPriority, 'priorityId'),
       issuesByStatus: this.mapCounts(lookups, LookupType.ISSUE_STATUS, issuesByStatus, 'statusId'),
       issuesBySeverity: this.mapCounts(lookups, LookupType.ISSUE_SEVERITY, issuesBySeverity, 'severityId'),
-      workload,
+      // Clients see progress and budget, not how the team's work is spread.
+      workload: isViewer(user.role) ? [] : workload,
       milestones: {
         total: milestones.length,
         completed: milestones.filter((m) => m.completedAt).length,

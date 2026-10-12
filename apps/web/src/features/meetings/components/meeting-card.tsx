@@ -4,7 +4,7 @@ import { CalendarClock, Copy, ExternalLink, FolderKanban, Globe, Pencil, Trash2,
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { usePermissions } from '@/features/auth/hooks/use-permissions';
-import { Permission } from '@/shared/constants/domain';
+import { OrgRole, Permission } from '@/shared/constants/domain';
 import { fullName } from '@/shared/lib/utils';
 import { Button } from '@/shared/ui/button';
 import { ConfirmDialog, Modal } from '@/shared/ui/modal';
@@ -33,13 +33,15 @@ export function MeetingChip({ meeting, onOpen, roomy }: { meeting: Meeting; onOp
 
 /** Pop-up card with everything about a meeting and a button to join it. */
 export function MeetingDetailModal({ meeting, onClose }: { meeting: Meeting | null; onClose: () => void }) {
-  const { can } = usePermissions();
-  const canManage = can(Permission.MEETINGS_MANAGE);
+  const { can, user } = usePermissions();
+  const viewer = user?.role === OrgRole.VIEWER;
   const remove = useDeleteMeeting();
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   if (!meeting) return null;
   const style = meetingStyle(meeting.type);
+  // Clients change only the client meetings they scheduled themselves.
+  const canManage = can(Permission.MEETINGS_MANAGE) || (viewer && meeting.createdBy.id === user?.id);
 
   return (
     <>
@@ -104,7 +106,7 @@ export function MeetingDetailModal({ meeting, onClose }: { meeting: Meeting | nu
           <p className="text-xs text-muted">Scheduled by {fullName(meeting.createdBy)}</p>
         </dl>
       </Modal>
-      <MeetingFormModal open={editing} meeting={meeting} onClose={() => setEditing(false)} />
+      <MeetingFormModal open={editing} meeting={meeting} onClose={() => setEditing(false)} clientOnly={viewer} />
       <ConfirmDialog
         open={deleting}
         onClose={() => setDeleting(false)}

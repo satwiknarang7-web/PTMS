@@ -24,6 +24,8 @@ export const PLATFORM_ROOT_ROLE = 'ROOT';
 export const OrgRole = {
   PROJECT_COORDINATOR: 'PROJECT_COORDINATOR',
   MEMBER: 'MEMBER',
+  /** Client: project dashboards and client meetings of the projects they are added to. */
+  VIEWER: 'VIEWER',
 } as const;
 export type OrgRole = (typeof OrgRole)[keyof typeof OrgRole];
 export const ORG_ROLES = Object.values(OrgRole);
@@ -33,7 +35,9 @@ export const ROLE_LABELS: Record<string, string> = {
   [PLATFORM_ROOT_ROLE]: 'Root',
   [OrgRole.PROJECT_COORDINATOR]: 'Project coordinator',
   [OrgRole.MEMBER]: 'Member',
+  [OrgRole.VIEWER]: 'Client (viewer)',
 };
+export const isViewerRole = (role: string | undefined) => role === OrgRole.VIEWER;
 export const roleLabel = (role: string) => ROLE_LABELS[role] ?? role;
 
 export const MeetingType = {

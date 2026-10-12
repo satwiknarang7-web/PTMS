@@ -2,7 +2,7 @@
 
 import { Bell, CheckCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { cn, timeAgo } from '@/shared/lib/utils';
+import { cn, localizeTimes, timeAgo } from '@/shared/lib/utils';
 import { Button } from '@/shared/ui/button';
 import { Dropdown } from '@/shared/ui/dropdown';
 import { EmptyState, Spinner } from '@/shared/ui/feedback';
@@ -73,7 +73,7 @@ function NotificationPanel({ onOpen, onMarkAll, hasUnread }: { onOpen: (n: Notif
             >
               <span className={cn('mt-1.5 size-2 shrink-0 rounded-full', notification.readAt ? 'bg-transparent' : 'bg-brand')} />
               <span className="min-w-0">
-                <span className="block text-sm font-medium">{notification.title}</span>
+                <span className="block text-sm font-medium">{localizeTimes(notification.title)}</span>
                 {notification.body && <span className="block truncate text-xs text-muted">{notification.body}</span>}
                 <span className="mt-0.5 block text-[11px] text-muted">{timeAgo(notification.createdAt)}</span>
               </span>

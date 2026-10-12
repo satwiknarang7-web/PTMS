@@ -21,7 +21,7 @@ import {
   UserQueryDto,
 } from './dto/user.dto';
 import { PasswordService } from './password.service';
-import { PublicUser, USER_DIRECTORY_SELECT, USER_PUBLIC_SELECT } from './users.select';
+import { PublicUser, USER_DIRECTORY_SELECT, USER_PUBLIC_SELECT, USER_SUMMARY_SELECT } from './users.select';
 
 /** Open tasks / issues listed on a member's details page. */
 const DETAILS_LIST_SIZE = 50;
@@ -100,7 +100,7 @@ export class UsersService {
     const openIssues: Prisma.IssueWhereInput = { assigneeId: id, project: { organizationId, isArchived: false }, status: openStatus };
     const lookup = { select: { id: true, name: true, color: true, category: true } };
 
-    const [memberships, tasks, issues, completedTasks, weekTime, monthTime, recentTime, activity, overdueTasks, openIssueCount] = await Promise.all([
+    const [memberships, tasks, issues, reportedIssues, completedTasks, weekTime, monthTime, recentTime, activity, overdueTasks, openIssueCount] = await Promise.all([
       this.prisma.projectMember.findMany({
         where: { userId: id, project: { organizationId } },
         orderBy: { createdAt: 'asc' },
@@ -136,6 +136,22 @@ export class UsersService {
           dueDate: true,
           status: lookup,
           severity: lookup,
+          project: { select: { id: true, name: true, key: true, color: true } },
+        },
+      }),
+      // Issues they reported, newest first (open or closed), so coordinators can follow up on them.
+      this.prisma.issue.findMany({
+        where: { reporterId: id, project: { organizationId } },
+        orderBy: { createdAt: 'desc' },
+        take: DETAILS_LIST_SIZE,
+        select: {
+          id: true,
+          number: true,
+          title: true,
+          createdAt: true,
+          status: lookup,
+          severity: lookup,
+          assignee: { select: USER_SUMMARY_SELECT },
           project: { select: { id: true, name: true, key: true, color: true } },
         },
       }),
@@ -180,6 +196,7 @@ export class UsersService {
       projects: memberships.map(({ project, createdAt }) => ({ ...project, joinedAt: createdAt, openTasks: openByProject.get(project.id) ?? 0 })),
       tasks,
       issues,
+      reportedIssues,
       recentTime,
       activity,
     };

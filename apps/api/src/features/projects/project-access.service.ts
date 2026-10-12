@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, Project } from '@prisma/client';
 import { hasPermission, Permission } from '../../common/constants/permissions.constants';
-import { isCoordinator, ProjectRole } from '../../common/constants/roles.constants';
+import { isCoordinator, isViewer, OrgRole, ProjectRole } from '../../common/constants/roles.constants';
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -38,7 +38,8 @@ export class ProjectAccessService {
     const memberRole = (membership?.role as ProjectRole | undefined) ?? null;
     // Coordinators (and root) manage every project; members work on the items of their own projects.
     const canManage = isCoordinator(user.role);
-    const canEdit = canManage || memberRole !== null;
+    // Clients (viewers) only ever read the projects they were added to.
+    const canEdit = canManage || (memberRole !== null && !isViewer(user.role));
     const canView = canEdit || memberRole !== null || hasPermission(user.role, Permission.PROJECTS_VIEW_ALL);
 
     return { project, memberRole, canView, canEdit, canManage };
@@ -74,9 +75,9 @@ export class ProjectAccessService {
   async assertMembers(projectId: string, userIds: string[]): Promise<void> {
     const unique = [...new Set(userIds)];
     if (!unique.length) return;
-    const count = await this.prisma.projectMember.count({ where: { projectId, userId: { in: unique } } });
+    const count = await this.prisma.projectMember.count({ where: { projectId, userId: { in: unique }, user: { role: { not: OrgRole.VIEWER } } } });
     if (count !== unique.length) {
-      throw new BadRequestException('Assignees must be members of the project');
+      throw new BadRequestException('Assignees must be members of the project (clients cannot be assigned work)');
     }
   }
 }

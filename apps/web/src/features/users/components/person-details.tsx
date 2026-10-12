@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle, ArrowLeft, Bug, CheckCircle2, Clock, FolderKanban, ListTodo, Mail, Users } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Bug, CheckCircle2, Clock, Flag, FolderKanban, ListTodo, Mail, Users } from 'lucide-react';
 import Link from 'next/link';
 import { routes } from '@/shared/config/routes';
 import { OrgRole, roleLabel } from '@/shared/constants/domain';
@@ -121,6 +121,27 @@ function PersonDetailsContent({ userId }: { userId: string }) {
             </ul>
           ) : (
             <Empty>No open issues.</Empty>
+          )}
+        </CollapsibleCard>
+
+        <CollapsibleCard title="Reported issues" meta={data.reportedIssues.length} storageKey="person.reported" icon={<Flag />} defaultOpen={data.reportedIssues.length > 0}>
+          {data.reportedIssues.length ? (
+            <ul className="scrollbar-thin max-h-96 divide-y divide-border overflow-y-auto">
+              {data.reportedIssues.map((issue) => (
+                <li key={issue.id}>
+                  <Link href={`${routes.projectIssues(issue.project.id)}?issueId=${issue.id}`} className="flex items-center gap-3 px-[var(--card-p)] py-2.5 hover:bg-surface-hover">
+                    <span className="w-24 shrink-0 truncate text-xs text-muted">
+                      {issue.project.key}-BUG-{issue.number}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-sm">{issue.title}</span>
+                    <ColorBadge color={issue.status.color} label={issue.status.name} variant="dot" />
+                    <span className="hidden w-24 text-right text-xs text-muted sm:block">{formatDate(issue.createdAt)}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <Empty>No issues reported.</Empty>
           )}
         </CollapsibleCard>
 

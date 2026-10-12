@@ -25,6 +25,7 @@ import { Table, Td, Th, Tr } from '@/shared/ui/table';
 import { useProjects, useProjectSummary } from '../api';
 import type { Project, ProjectQuery, ProjectSummary } from '../types';
 import { HealthBadge } from './health-badge';
+import { ProjectActions } from './project-actions';
 import { ProjectFormModal } from './project-form-modal';
 
 type View = 'grid' | 'list';
@@ -333,6 +334,8 @@ function ProjectGridSkeleton() {
 }
 
 function ProjectTable({ projects }: { projects: Project[] }) {
+  // Coordinators and root manage every project.
+  const canManage = usePermissions().can(Permission.PROJECTS_VIEW_ALL);
   if (!projects.length) {
     return (
       <Card>
@@ -387,9 +390,13 @@ function ProjectTable({ projects }: { projects: Project[] }) {
               <Td className={cn('text-right tabular-nums', project.stats.overdueTasks > 0 && 'font-medium text-danger')}>{project.stats.overdueTasks}</Td>
               <Td className="whitespace-nowrap text-muted">{formatDate(project.endDate)}</Td>
               <Td>
-                <Link href={routes.project(project.id)} aria-label={`Open ${project.name}`} className="text-muted hover:text-foreground">
-                  <ChevronRight className="size-4" />
-                </Link>
+                {canManage ? (
+                  <ProjectActions project={project} afterDelete={() => undefined} />
+                ) : (
+                  <Link href={routes.project(project.id)} aria-label={`Open ${project.name}`} className="text-muted hover:text-foreground">
+                    <ChevronRight className="size-4" />
+                  </Link>
+                )}
               </Td>
             </Tr>
           ))}

@@ -126,3 +126,11 @@ export function contrastText(hex: string): string {
   const [r, g, b] = [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16));
   return (r * 299 + g * 587 + b * 114) / 1000 > 150 ? '#111827' : '#ffffff';
 }
+
+/** Server text can carry `{{time:<ISO instant>}}`; shows it as a time in the reader's own time zone. */
+export function localizeTimes(text: string): string {
+  return text.replace(/\{\{time:([^}]+)\}\}/g, (token, iso: string) => {
+    const date = new Date(iso);
+    return Number.isNaN(date.getTime()) ? token : date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  });
+}

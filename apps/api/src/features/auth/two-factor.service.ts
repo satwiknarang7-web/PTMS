@@ -11,6 +11,7 @@ const DIGITS = 6;
 /** Codes from one step before or after are accepted, to absorb clock drift. */
 const DRIFT_STEPS = 1;
 const RECOVERY_CODE_COUNT = 8;
+const REQUIRED_SETTING = 'twoFactorRequired';
 const BASE32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
 export function base32Encode(buffer: Buffer): string {
@@ -78,8 +79,24 @@ export class TwoFactorService {
     private readonly config: ConfigService<AppConfig, true>,
   ) {}
 
-  get required(): boolean {
-    return this.config.get('twoFactor', { infer: true }).required;
+  /** Whether everyone must use an authenticator: root's platform switch, else TWO_FACTOR_REQUIRED. */
+  async isRequired(): Promise<boolean> {
+    const setting = await this.prisma.platformSetting.findUnique({ where: { key: REQUIRED_SETTING } });
+    return setting ? setting.value === 'true' : this.config.get('twoFactor', { infer: true }).required;
+  }
+
+  async setRequired(required: boolean): Promise<void> {
+    const value = String(required);
+    await this.prisma.platformSetting.upsert({ where: { key: REQUIRED_SETTING }, create: { key: REQUIRED_SETTING, value }, update: { value } });
+  }
+
+  /** Turns the authenticator off for someone (they choose to, or an admin resets it). */
+  async disable(user: TwoFactorUser, code: string): Promise<void> {
+    if (!(await this.verify(user, { code }))) throw new BadRequestException('That code is not right');
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { twoFactorSecret: null, twoFactorEnabledAt: null, twoFactorRecoveryCodes: null, twoFactorLastStep: null },
+    });
   }
 
   /** Creates (or replaces) the not-yet-confirmed secret and returns what the authenticator app needs. */

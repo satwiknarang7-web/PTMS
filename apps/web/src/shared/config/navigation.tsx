@@ -1,4 +1,4 @@
-import { BarChart3, Building2, CalendarCheck, CalendarDays, Clock, House, LayoutDashboard, Settings, ShieldCheck, Users, type LucideIcon } from 'lucide-react';
+import { BarChart3, Building2, CalendarCheck, CalendarDays, Clock, FolderKanban, House, LayoutDashboard, Settings, ShieldCheck, Users, type LucideIcon } from 'lucide-react';
 import { Permission } from '@/shared/constants/domain';
 import { routes } from './routes';
 
@@ -31,6 +31,23 @@ export const NAVIGATION: NavSection[] = [
     ],
   },
 ];
+
+/** Client (viewer) accounts: their projects' dashboards and client meetings. */
+export const VIEWER_NAVIGATION: NavSection[] = [
+  {
+    label: 'Workspace',
+    items: [
+      { label: 'Projects', href: routes.projects, icon: FolderKanban },
+      { label: 'Calendar', href: routes.calendar, icon: CalendarDays },
+    ],
+  },
+];
+
+/** Paths a client may open; everything else sends them to their projects. */
+export function viewerCanOpen(pathname: string): boolean {
+  if (/^\/projects\/[^/]+\/overview$/.test(pathname)) return true;
+  return ([routes.projects, routes.calendar, routes.profile, routes.settings, routes.settingsAppearance] as string[]).includes(pathname);
+}
 
 /** Pinned to the bottom of the workspace sidebar. */
 export const FOOTER_NAVIGATION: NavItem[] = [{ label: 'Settings', href: routes.settings, icon: Settings }];

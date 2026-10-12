@@ -1,6 +1,6 @@
 'use client';
 
-import { Building2, FolderKanban, UserCog, Users } from 'lucide-react';
+import { Building2, FolderKanban, ShieldCheck, UserCog, Users } from 'lucide-react';
 import Link from 'next/link';
 import { routes } from '@/shared/config/routes';
 import { errorMessage } from '@/shared/lib/api-client';
@@ -10,7 +10,8 @@ import { Card, CardBody, CardHeader } from '@/shared/ui/card';
 import { ErrorState, Spinner } from '@/shared/ui/feedback';
 import { PageHeader } from '@/shared/ui/layout';
 import { KpiStrip } from '@/shared/components/kpi-strip';
-import { usePlatformOverview } from '../api';
+import { Switch } from '@/shared/ui/switch';
+import { usePlatformOverview, usePlatformSettings, useUpdatePlatformSettings } from '../api';
 
 export function PlatformOverview() {
   const { data, isLoading, isError, error, refetch } = usePlatformOverview();
@@ -29,7 +30,8 @@ export function PlatformOverview() {
         ]}
       />
 
-      <div className="mt-6">
+      <div className="mt-6 space-y-6">
+        <SecurityCard />
         <Card>
           <CardHeader
             title="Newest organizations"
@@ -60,5 +62,35 @@ export function PlatformOverview() {
         </Card>
       </div>
     </>
+  );
+}
+
+/** Root's installation-wide switch for two-step sign-in. */
+function SecurityCard() {
+  const { data } = usePlatformSettings();
+  const update = useUpdatePlatformSettings();
+  const required = data?.twoFactorRequired ?? false;
+  return (
+    <Card>
+      <CardBody className="flex items-start gap-4">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-ui-lg bg-brand-soft text-brand">
+          <ShieldCheck className="size-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-foreground">Require two-step sign-in for everyone</p>
+          <p className="mt-0.5 text-sm text-muted">
+            {required
+              ? 'On: everyone signs in with a code from an authenticator app. People who have not set it up scan a QR code at their next sign-in.'
+              : 'Off: only people who turned it on in their profile are asked for a code. Everyone else signs in with their password alone.'}
+          </p>
+        </div>
+        <Switch
+          checked={required}
+          disabled={!data || update.isPending}
+          onChange={(value) => update.mutate({ twoFactorRequired: value })}
+          label="Require two-step sign-in for everyone"
+        />
+      </CardBody>
+    </Card>
   );
 }

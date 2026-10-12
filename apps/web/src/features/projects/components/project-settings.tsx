@@ -17,6 +17,7 @@ import { Spinner } from '@/shared/ui/feedback';
 import { Field, Input } from '@/shared/ui/form';
 import { ConfirmDialog, Modal } from '@/shared/ui/modal';
 import { useAddMembers, useDeleteProject, useMemberCandidates, useProject, useProjectMembers, useRemoveMember, useUpdateProject } from '../api';
+import { ProjectActions } from './project-actions';
 import { ProjectFormModal } from './project-form-modal';
 
 export function ProjectSettings({ projectId }: { projectId: string }) {
@@ -43,37 +44,7 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
             <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
               <Pencil className="size-3.5" /> Edit
             </Button>
-            <Dropdown
-              trigger={({ toggle }) => (
-                <Button variant="ghost" size="icon" aria-label="More project actions" onClick={toggle}>
-                  <MoreHorizontal />
-                </Button>
-              )}
-            >
-              {(close) => (
-                <>
-                  <DropdownItem
-                    onClick={() => {
-                      close();
-                      updateProject.mutate({ isArchived: !project.isArchived });
-                    }}
-                  >
-                    {project.isArchived ? <ArchiveRestore /> : <Archive />}
-                    {project.isArchived ? 'Restore project' : 'Archive project'}
-                  </DropdownItem>
-                  <DropdownSeparator />
-                  <DropdownItem
-                    danger
-                    onClick={() => {
-                      close();
-                      setDeleting(true);
-                    }}
-                  >
-                    <Trash2 /> Delete project
-                  </DropdownItem>
-                </>
-              )}
-            </Dropdown>
+            <ProjectActions project={project} />
           </>
         }
       >
@@ -142,22 +113,6 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
 
       <ProjectFormModal open={editing} onClose={() => setEditing(false)} project={project} />
       <AddMembersModal projectId={projectId} open={adding} onClose={() => setAdding(false)} existingIds={members?.map((m) => m.userId) ?? []} />
-      <ConfirmDialog
-        open={deleting}
-        onClose={() => setDeleting(false)}
-        title="Delete project"
-        message={`This permanently deletes ${project.name} with all of its tasks, issues, milestones and time entries.`}
-        confirmLabel="Delete forever"
-        loading={deleteProject.isPending}
-        onConfirm={() =>
-          confirmKey === project.key &&
-          deleteProject.mutate(project.id, { onSuccess: () => router.replace(routes.projects) })
-        }
-      >
-        <Field label={`Type ${project.key} to confirm`}>
-          <Input value={confirmKey} onChange={(e) => setConfirmKey(e.target.value.toUpperCase())} />
-        </Field>
-      </ConfirmDialog>
     </div>
   );
 }

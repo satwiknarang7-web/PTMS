@@ -8,7 +8,7 @@ import { errorMessage } from '@/shared/lib/api-client';
 import { Button } from '@/shared/ui/button';
 import { Checkbox, Field, FormAlert, Input } from '@/shared/ui/form';
 import { Spinner } from '@/shared/ui/feedback';
-import { authApi } from '../api';
+import { authApi, type TwoFactorSetup } from '../api';
 
 function StepHeader({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
   return (
@@ -104,18 +104,44 @@ export function TwoFactorCodeStep({ challenge, onSuccess, onBack }: { challenge:
 
 /** First sign-in: scan the QR code, confirm with a code, then save the recovery codes. */
 export function TwoFactorSetupStep({ challenge, onSuccess, onBack }: { challenge: string; onSuccess: () => void; onBack: () => void }) {
+  return (
+    <AuthenticatorSetup
+      setupKey={challenge}
+      load={() => authApi.setupTwoFactor(challenge)}
+      activate={(code) => authApi.activateTwoFactor({ challenge, code })}
+      onDone={onSuccess}
+      onBack={onBack}
+      intro={`${appConfig.companyName || 'Your organization'} requires a code from an authenticator app each time you sign in.`}
+    />
+  );
+}
+
+interface AuthenticatorSetupProps {
+  /** Identifies this setup attempt, so a new attempt gets a new QR code. */
+  setupKey: string;
+  load: () => Promise<TwoFactorSetup>;
+  activate: (code: string) => Promise<{ recoveryCodes: string[] }>;
+  onDone: () => void;
+  onBack?: () => void;
+  intro: string;
+  submitLabel?: string;
+  doneLabel?: string;
+}
+
+/** Scan the QR code, confirm with a first code, then save the recovery codes (sign-in and profile). */
+export function AuthenticatorSetup({ setupKey, load, activate: activateFn, onDone, onBack, intro, submitLabel = 'Turn on and continue', doneLabel }: AuthenticatorSetupProps) {
   const [code, setCode] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
-  const setup = useQuery({ queryKey: ['auth', 'two-factor-setup', challenge], queryFn: () => authApi.setupTwoFactor(challenge), retry: false, staleTime: Infinity, gcTime: 0 });
+  const setup = useQuery({ queryKey: ['auth', 'two-factor-setup', setupKey], queryFn: load, retry: false, staleTime: Infinity, gcTime: 0 });
   const activate = useMutation({
-    mutationFn: authApi.activateTwoFactor,
+    mutationFn: activateFn,
     meta: { silentError: true },
     onSuccess: (result) => setRecoveryCodes(result.recoveryCodes),
     onError: () => setCode(''),
   });
 
-  if (recoveryCodes) return <RecoveryCodes codes={recoveryCodes} onDone={onSuccess} />;
+  if (recoveryCodes) return <RecoveryCodes codes={recoveryCodes} onDone={onDone} doneLabel={doneLabel} />;
 
   return (
     <form
@@ -123,12 +149,11 @@ export function TwoFactorSetupStep({ challenge, onSuccess, onBack }: { challenge
       noValidate
       onSubmit={(e) => {
         e.preventDefault();
-        activate.mutate({ challenge, code });
+        activate.mutate(code);
       }}
     >
       <StepHeader icon={<ShieldCheck />} title="Set up two-step sign-in">
-        {appConfig.companyName || 'Your organization'} requires a code from an authenticator app each time you sign in. Install Google Authenticator,
-        Microsoft Authenticator or Authy, then scan this code with it.
+        {intro} Install Google Authenticator, Microsoft Authenticator or Authy, then scan this code with it.
       </StepHeader>
       {setup.isLoading ? (
         <Spinner />
@@ -152,14 +177,16 @@ export function TwoFactorSetupStep({ challenge, onSuccess, onBack }: { challenge
       )}
       {activate.isError && <FormAlert>{errorMessage(activate.error)}</FormAlert>}
       <Field label="Enter the 6-digit code the app shows" htmlFor="two-factor-code">
-        <CodeInput value={code} onChange={setCode} onComplete={(v) => activate.mutate({ challenge, code: v })} disabled={activate.isPending || !setup.data} />
+        <CodeInput value={code} onChange={setCode} onComplete={(v) => activate.mutate(v)} disabled={activate.isPending || !setup.data} />
       </Field>
       <Button type="submit" size="lg" className="w-full justify-center" loading={activate.isPending} disabled={code.length !== 6 || !setup.data}>
-        Turn on and continue
+        {submitLabel}
       </Button>
-      <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-foreground">
-        <ArrowLeft className="size-3.5" /> Back
-      </button>
+      {onBack && (
+        <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-foreground">
+          <ArrowLeft className="size-3.5" /> Back
+        </button>
+      )}
     </form>
   );
 }

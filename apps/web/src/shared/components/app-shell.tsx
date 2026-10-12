@@ -28,9 +28,9 @@ import { useExitWorkspace } from '@/features/platform/api';
 import { ProjectsNav } from '@/features/projects/components/projects-nav';
 import { GlobalSearch } from '@/features/search/components/global-search';
 import { appConfig } from '@/shared/config/env';
-import { FOOTER_NAVIGATION, NAVIGATION, PLATFORM_NAVIGATION, SETTINGS_NAVIGATION, type NavItem, type NavSection } from '@/shared/config/navigation';
+import { FOOTER_NAVIGATION, NAVIGATION, PLATFORM_NAVIGATION, SETTINGS_NAVIGATION, VIEWER_NAVIGATION, viewerCanOpen, type NavItem, type NavSection } from '@/shared/config/navigation';
 import { routes } from '@/shared/config/routes';
-import { PLATFORM_ROOT_ROLE, roleLabel } from '@/shared/constants/domain';
+import { OrgRole, PLATFORM_ROOT_ROLE, roleLabel } from '@/shared/constants/domain';
 import { useSystemStatus } from '@/shared/hooks/use-system-status';
 import { cn, fullName } from '@/shared/lib/utils';
 import type { ThemeMode } from '@/shared/theme/theme.config';
@@ -76,17 +76,21 @@ export function AppShell({ children, variant = 'tenant' }: { children: ReactNode
   const platform = variant === 'platform';
   const root = !!user && isRootUser(user);
   // The platform console is root-only; a workspace needs an organization (root gets one by opening it).
-  const misplaced = !!user && (platform ? !root : !user.organization);
+  const viewer = !!user && user.role === OrgRole.VIEWER;
+  // Clients only open their projects' dashboards and the calendar; anything else leads to one of those.
+  const viewerTarget = viewer && !platform && !viewerCanOpen(pathname) ? viewerRedirect(pathname) : null;
+  const misplaced = !!user && ((platform ? !root : !user.organization) || !!viewerTarget);
 
   useEffect(() => setMobileOpen(false), [pathname]);
   useEffect(() => {
-    if (misplaced) router.replace(platform ? routes.home : routes.platform);
-  }, [misplaced, platform, router]);
+    if (viewerTarget) router.replace(viewerTarget);
+    else if (misplaced) router.replace(platform ? routes.home : routes.platform);
+  }, [misplaced, platform, router, viewerTarget]);
 
   if (isLoading || misplaced) return <Spinner className="min-h-screen" label="Loading your workspace" />;
   if (isError || !user) return <ErrorState message="We could not load your session." onRetry={() => refetch()} />;
 
-  const navigation = platform ? PLATFORM_NAVIGATION : NAVIGATION;
+  const navigation = platform ? PLATFORM_NAVIGATION : viewer ? VIEWER_NAVIGATION : NAVIGATION;
   const workspace = workspaceOf(user, variant);
   const sidebarProps = { user, pathname, navigation, workspace, tenant: !platform };
 
@@ -122,7 +126,7 @@ export function AppShell({ children, variant = 'tenant' }: { children: ReactNode
           <Link href={platform ? routes.platform : routes.home} aria-label={`${appConfig.name} home`} className="shrink-0 lg:hidden">
             <BrandLogo compact className="[&_img]:h-7 [&_img]:max-w-[6.5rem]" />
           </Link>
-          <div className="flex min-w-0 flex-1 items-center justify-end sm:justify-start">{!platform && <GlobalSearch />}</div>
+          <div className="flex min-w-0 flex-1 items-center justify-end sm:justify-start">{!platform && !viewer && <GlobalSearch />}</div>
           <div className="flex items-center gap-1">
             {!platform && <NotificationBell />}
             <div className="mx-1.5 hidden h-6 w-px bg-border sm:block" />
@@ -472,4 +476,10 @@ function UserMenu({ user, variant }: { user: SessionUser; variant: ShellVariant 
       }}
     </Dropdown>
   );
+}
+
+/** Where a client lands instead of a page they cannot open: the project's dashboard, else their projects. */
+function viewerRedirect(pathname: string): string {
+  const project = /^\/projects\/([^/]+)/.exec(pathname)?.[1];
+  return project ? routes.projectOverview(project) : routes.projects;
 }

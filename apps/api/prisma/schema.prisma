@@ -495,3 +495,10 @@ model Meeting {
   @@index([organizationId, startsAt])
   @@index([projectId, startsAt])
 }
+
+/// Installation-wide switches root admins change from the platform console (key → JSON value).
+model PlatformSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}

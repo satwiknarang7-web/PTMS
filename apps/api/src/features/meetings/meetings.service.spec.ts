@@ -41,14 +41,14 @@ describe('MeetingsService.sendReminders', () => {
     const early = meeting({ startsAt: new Date('2026-10-09T09:45:00Z'), endsAt: new Date('2026-10-09T10:15:00Z') });
     const { service, events } = setup({ timezone: 'America/New_York', meetings: [early] });
     await service.sendReminders(ORG, undefined, now); // 05:00 in New York, meeting at 05:45
-    expect(events.notify).toHaveBeenCalledWith(expect.objectContaining({ title: 'Today 05:45 · Client demo', link: '/calendar?date=2026-10-09' }));
+    expect(events.notify).toHaveBeenCalledWith(expect.objectContaining({ title: 'Today {{time:2026-10-09T09:45:00.000Z}} · Client demo', link: '/calendar?date=2026-10-09' }));
   });
 
   it('tells everyone in the organization about organization-wide meetings today, once', async () => {
     const { service, prisma, events } = setup({ meetings: [meeting()] });
     await service.sendReminders(ORG, undefined, now);
     expect(events.notify).toHaveBeenCalledWith(
-      expect.objectContaining({ recipientIds: ['u1', 'u2', 'u3'], type: NotificationType.MEETING_TODAY, title: 'Today 14:00 · Client demo' }),
+      expect.objectContaining({ recipientIds: ['u1', 'u2', 'u3'], type: NotificationType.MEETING_TODAY, title: expect.stringMatching(/^Today {{time:.+}} · Client demo$/) }),
     );
     expect(prisma.meeting.updateMany).toHaveBeenCalledWith({ where: { id: { in: ['m1'] } }, data: { reminderSentAt: now } });
   });

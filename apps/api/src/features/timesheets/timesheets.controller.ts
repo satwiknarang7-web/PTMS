@@ -21,6 +21,11 @@ export class TimesheetsController {
     return this.timesheets.findAll(user, query);
   }
 
+  @Get('people')
+  people(@CurrentUser() user: AuthenticatedUser, @Query('projectId') projectId?: string) {
+    return this.timesheets.people(user, projectId || undefined);
+  }
+
   @Get('summary')
   summary(@CurrentUser() user: AuthenticatedUser, @Query() query: TimeSummaryQueryDto) {
     return this.timesheets.summary(user, query);
