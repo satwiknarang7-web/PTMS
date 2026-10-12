@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RateLimitStore } from '../../common/rate-limit/rate-limit.store';
 import { AppConfig } from '../../config/configuration';
@@ -10,6 +10,7 @@ import { AppConfig } from '../../config/configuration';
  */
 @Injectable()
 export class LoginAttemptsService {
+  private readonly logger = new Logger(LoginAttemptsService.name);
   private readonly maxFailures: number;
   private readonly lockoutMs: number;
 
@@ -43,7 +44,11 @@ export class LoginAttemptsService {
   }
 
   async reset(email: string): Promise<void> {
-    await this.store.reset(this.key(email));
+    try {
+      await this.store.reset(this.key(email));
+    } catch (error) {
+      this.logger.error(`Sign-in attempts not cleared: ${(error as Error).message}`);
+    }
   }
 
   private key(email: string): string {
