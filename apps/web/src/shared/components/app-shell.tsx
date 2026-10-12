@@ -16,6 +16,7 @@ import {
   Sun,
   UserRound,
   X,
+  MessageSquareHeart,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -26,6 +27,7 @@ import { useNavCounts } from '@/features/dashboard/api';
 import { NotificationBell } from '@/features/notifications/components/notification-bell';
 import { useExitWorkspace } from '@/features/platform/api';
 import { ProjectsNav } from '@/features/projects/components/projects-nav';
+import { FeedbackDialog } from '@/features/feedback/components/feedback-dialog';
 import { useUnreadMessages } from '@/features/messages/api';
 import { GlobalSearch } from '@/features/search/components/global-search';
 import { appConfig } from '@/shared/config/env';
@@ -218,6 +220,9 @@ function Sidebar({ user, pathname, navigation, workspace, tenant, onClose, colla
               <SidebarLink item={item} active={isActive(pathname, item.href)} />
             </li>
           ))}
+          <li>
+            <SidebarFeedbackButton />
+          </li>
         </ul>
       )}
 
@@ -359,6 +364,25 @@ function SidebarLink({ item, active, count }: { item: NavItem; active: boolean; 
   );
 }
 
+/** Opens the feedback form from the sidebar (styled like the links around it). */
+function SidebarFeedbackButton() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        title="Send feedback"
+        className="group flex w-full items-center gap-3 rounded-ui px-3 py-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-hover collapsed:justify-center collapsed:px-0"
+      >
+        <MessageSquareHeart className="size-[18px] shrink-0 text-sidebar-muted group-hover:text-sidebar-foreground" />
+        <span className="min-w-0 flex-1 truncate whitespace-nowrap text-left collapsed:sr-only">Send feedback</span>
+      </button>
+      <FeedbackDialog open={open} onClose={() => setOpen(false)} />
+    </>
+  );
+}
+
 /** Shown while the root account works inside an organization. */
 function RootWorkspaceBanner({ organizationName }: { organizationName: string }) {
   const exit = useExitWorkspace();
@@ -398,6 +422,7 @@ function UserMenu({ user, variant }: { user: SessionUser; variant: ShellVariant 
   const logout = useLogout();
   const router = useRouter();
   const { appearance, update } = useTheme();
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   const signOut = () =>
     logout.mutate(undefined, {
@@ -408,76 +433,87 @@ function UserMenu({ user, variant }: { user: SessionUser; variant: ShellVariant 
     });
 
   return (
-    <Dropdown
-      trigger={({ toggle }) => (
-        <button type="button" onClick={toggle} className="flex items-center gap-2.5 rounded-ui p-1 transition-colors hover:bg-surface-muted sm:pr-2">
-          <Avatar user={user} />
-          <span className="hidden text-left sm:block">
-            <span className="block max-w-40 truncate text-sm font-medium leading-tight">{fullName(user)}</span>
-            <span className="block text-[11px] leading-tight text-muted">{roleLabel(user.role)}</span>
-          </span>
-          <ChevronsUpDown className="hidden size-3.5 text-muted sm:block" />
-        </button>
-      )}
-    >
-      {(close) => {
-        const go = (href: string) => {
-          close();
-          router.push(href);
-        };
-        return (
-          <>
-            <div className="px-2.5 py-2">
-              <p className="truncate text-sm font-medium">{fullName(user)}</p>
-              <p className="truncate text-xs text-muted">{user.email}</p>
-            </div>
-            <DropdownSeparator />
-            <DropdownItem onClick={() => go(links.profile)}>
-              <UserRound /> My profile
-            </DropdownItem>
-            <DropdownItem onClick={() => go(links.appearance)}>
-              <Palette /> Appearance
-            </DropdownItem>
-            <div className="flex items-center justify-between gap-3 px-2.5 py-1.5">
-              <span className="text-sm text-foreground-soft">Theme</span>
-              <div role="radiogroup" aria-label="Theme" className="inline-flex rounded-ui border border-border bg-surface-muted p-0.5">
-                {THEME_CHOICES.map(({ mode, label, icon: Icon }) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    role="radio"
-                    aria-checked={appearance.mode === mode}
-                    aria-label={label}
-                    title={label}
-                    onClick={() => update({ mode })}
-                    className={cn(
-                      'flex size-7 items-center justify-center rounded-[calc(var(--radius)-2px)] transition-colors',
-                      appearance.mode === mode ? 'bg-surface text-foreground shadow-ui-sm' : 'text-muted hover:text-foreground',
-                    )}
-                  >
-                    <Icon className="size-3.5" />
-                  </button>
-                ))}
+    <>
+      <FeedbackDialog open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
+      <Dropdown
+        trigger={({ toggle }) => (
+          <button type="button" onClick={toggle} className="flex items-center gap-2.5 rounded-ui p-1 transition-colors hover:bg-surface-muted sm:pr-2">
+            <Avatar user={user} />
+            <span className="hidden text-left sm:block">
+              <span className="block max-w-40 truncate text-sm font-medium leading-tight">{fullName(user)}</span>
+              <span className="block text-[11px] leading-tight text-muted">{roleLabel(user.role)}</span>
+            </span>
+            <ChevronsUpDown className="hidden size-3.5 text-muted sm:block" />
+          </button>
+        )}
+      >
+        {(close) => {
+          const go = (href: string) => {
+            close();
+            router.push(href);
+          };
+          return (
+            <>
+              <div className="px-2.5 py-2">
+                <p className="truncate text-sm font-medium">{fullName(user)}</p>
+                <p className="truncate text-xs text-muted">{user.email}</p>
               </div>
-            </div>
-            {root && variant === 'tenant' && (
+              <DropdownSeparator />
+              <DropdownItem onClick={() => go(links.profile)}>
+                <UserRound /> My profile
+              </DropdownItem>
+              <DropdownItem onClick={() => go(links.appearance)}>
+                <Palette /> Appearance
+              </DropdownItem>
               <DropdownItem
                 onClick={() => {
                   close();
-                  exit.mutate();
+                  setFeedbackOpen(true);
                 }}
               >
-                <ArrowLeftRight /> Platform console
+                <MessageSquareHeart /> Send feedback
               </DropdownItem>
-            )}
-            <DropdownSeparator />
-            <DropdownItem onClick={signOut} danger>
-              <LogOut /> Sign out
-            </DropdownItem>
-          </>
-        );
-      }}
-    </Dropdown>
+              <div className="flex items-center justify-between gap-3 px-2.5 py-1.5">
+                <span className="text-sm text-foreground-soft">Theme</span>
+                <div role="radiogroup" aria-label="Theme" className="inline-flex rounded-ui border border-border bg-surface-muted p-0.5">
+                  {THEME_CHOICES.map(({ mode, label, icon: Icon }) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      role="radio"
+                      aria-checked={appearance.mode === mode}
+                      aria-label={label}
+                      title={label}
+                      onClick={() => update({ mode })}
+                      className={cn(
+                        'flex size-7 items-center justify-center rounded-[calc(var(--radius)-2px)] transition-colors',
+                        appearance.mode === mode ? 'bg-surface text-foreground shadow-ui-sm' : 'text-muted hover:text-foreground',
+                      )}
+                    >
+                      <Icon className="size-3.5" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {root && variant === 'tenant' && (
+                <DropdownItem
+                  onClick={() => {
+                    close();
+                    exit.mutate();
+                  }}
+                >
+                  <ArrowLeftRight /> Platform console
+                </DropdownItem>
+              )}
+              <DropdownSeparator />
+              <DropdownItem onClick={signOut} danger>
+                <LogOut /> Sign out
+              </DropdownItem>
+            </>
+          );
+        }}
+      </Dropdown>
+    </>
   );
 }
 

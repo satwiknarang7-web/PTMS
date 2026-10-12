@@ -36,6 +36,7 @@ export const routes = {
   platform: '/platform',
   platformOrganizations: '/platform/organizations',
   platformAdmins: '/platform/admins',
+  platformFeedback: '/platform/feedback',
   platformProfile: '/platform/profile',
   platformAppearance: '/platform/appearance',
 } as const;

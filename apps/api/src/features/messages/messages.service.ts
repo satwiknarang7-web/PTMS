@@ -8,8 +8,17 @@ import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.in
 import { fullName } from '../../common/utils/string.util';
 import { PrismaService } from '../../prisma/prisma.service';
 import { USER_SUMMARY_SELECT } from '../users/users.select';
+import { detectImageType } from '../../common/utils/image.util';
+import { MAX_IMAGE_BYTES, MAX_IMAGES_PER_COMMENT, PENDING_IMAGE_TTL_MS } from '../comments/comment-images';
 
 const PAGE_SIZE = 50;
+const MESSAGE_SELECT = {
+  id: true,
+  senderId: true,
+  body: true,
+  createdAt: true,
+  attachments: { select: { id: true, mimeType: true, size: true }, orderBy: { createdAt: 'asc' } },
+} satisfies Prisma.DirectMessageSelect;
 const CONTACT_SELECT = { ...USER_SUMMARY_SELECT, jobTitle: true, role: true } satisfies Prisma.UserSelect;
 
 /**
@@ -75,13 +84,17 @@ export class MessagesService {
       where: { conversationId, ...(cursor ? { createdAt: { lt: cursor.createdAt } } : {}) },
       orderBy: { createdAt: 'desc' },
       take: PAGE_SIZE,
-      select: { id: true, senderId: true, body: true, createdAt: true },
+      select: MESSAGE_SELECT,
     });
     return { data: page.reverse(), hasMore: page.length === PAGE_SIZE };
   }
 
-  async send(user: AuthenticatedUser, conversationId: string, body: string) {
+  async send(user: AuthenticatedUser, conversationId: string, text: string | undefined, attachmentIds: string[] = []) {
     const conversation = await this.findOwn(user, conversationId);
+    const body = text ?? '';
+    const imageIds = [...new Set(attachmentIds)];
+    if (!body && !imageIds.length) throw new BadRequestException('Write a message or attach an image');
+    if (imageIds.length > MAX_IMAGES_PER_COMMENT) throw new BadRequestException(`Attach at most ${MAX_IMAGES_PER_COMMENT} images`);
     const otherId = conversation.userAId === user.id ? conversation.userBId : conversation.userAId;
     const recipient = await this.prisma.user.findFirst({ where: { id: otherId, isActive: true }, select: { id: true } });
     if (!recipient) throw new BadRequestException('This person can no longer receive messages');
@@ -93,21 +106,59 @@ export class MessagesService {
     const alreadyUnread = await this.prisma.directMessage.count({
       where: { conversationId, senderId: user.id, ...(conversation[theirs] ? { createdAt: { gt: conversation[theirs] } } : {}) },
     });
-    const [message] = await this.prisma.$transaction([
-      this.prisma.directMessage.create({ data: { conversationId, senderId: user.id, body }, select: { id: true, senderId: true, body: true, createdAt: true } }),
-      this.prisma.conversation.update({ where: { id: conversationId }, data: { lastMessageAt: now, [mine]: now } }),
-    ]);
+    const message = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.directMessage.create({ data: { conversationId, senderId: user.id, body } });
+      if (imageIds.length) {
+        // Only the sender's own, not yet sent uploads for this chat.
+        const { count } = await tx.messageAttachment.updateMany({
+          where: { id: { in: imageIds }, uploaderId: user.id, conversationId, messageId: null },
+          data: { messageId: created.id },
+        });
+        if (count !== imageIds.length) throw new BadRequestException('Some images could not be attached. Add them again.');
+      }
+      await tx.conversation.update({ where: { id: conversationId }, data: { lastMessageAt: now, [mine]: now } });
+      return tx.directMessage.findUniqueOrThrow({ where: { id: created.id }, select: MESSAGE_SELECT });
+    });
     if (!alreadyUnread) {
       this.events.notify({
         recipientIds: [otherId],
         actorId: user.id,
         type: NotificationType.DIRECT_MESSAGE,
         title: `New message from ${fullName(user)}`,
-        body: body.slice(0, 140),
+        body: body ? body.slice(0, 140) : imageIds.length === 1 ? 'Sent an image' : `Sent ${imageIds.length} images`,
         link: NotificationLinks.conversation(conversationId),
       });
     }
     return message;
+  }
+
+  /** Stores an image for a message about to be sent in this chat. */
+  async uploadImage(user: AuthenticatedUser, conversationId: string, data: Buffer | undefined) {
+    if (!Buffer.isBuffer(data) || !data.length) throw new BadRequestException('Choose an image to send');
+    if (data.length > MAX_IMAGE_BYTES) throw new BadRequestException(`Images can be at most ${MAX_IMAGE_BYTES / 1024 / 1024} MB`);
+    const mimeType = detectImageType(data);
+    await this.findOwn(user, conversationId);
+    await this.prisma.messageAttachment.deleteMany({ where: { messageId: null, createdAt: { lt: new Date(Date.now() - PENDING_IMAGE_TTL_MS) } } });
+    const pending = await this.prisma.messageAttachment.count({ where: { uploaderId: user.id, messageId: null } });
+    if (pending >= MAX_IMAGES_PER_COMMENT * 3) throw new BadRequestException('Send or remove the images you already added first');
+    return this.prisma.messageAttachment.create({
+      data: { conversationId, uploaderId: user.id, mimeType, size: data.length, data: new Uint8Array(data) },
+      select: { id: true, mimeType: true, size: true },
+    });
+  }
+
+  /** An image's bytes, for the two people in the chat (unsent uploads: only their uploader). */
+  async image(user: AuthenticatedUser, id: string) {
+    const image = await this.prisma.messageAttachment.findUnique({ where: { id } });
+    if (!image || (!image.messageId && image.uploaderId !== user.id)) throw new NotFoundException('Image not found');
+    await this.findOwn(user, image.conversationId).catch(() => {
+      throw new NotFoundException('Image not found');
+    });
+    return image;
+  }
+
+  async removePendingImage(user: AuthenticatedUser, id: string): Promise<void> {
+    await this.prisma.messageAttachment.deleteMany({ where: { id, uploaderId: user.id, messageId: null } });
   }
 
   async markRead(user: AuthenticatedUser, conversationId: string): Promise<void> {

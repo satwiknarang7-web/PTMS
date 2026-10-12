@@ -202,4 +202,12 @@ ALTER TABLE "ptms"."Conversation" ADD CONSTRAINT "Conversation_userAId_fkey" FOR
 ALTER TABLE "ptms"."Conversation" ADD CONSTRAINT "Conversation_userBId_fkey" FOREIGN KEY ("userBId") REFERENCES "ptms"."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "ptms"."DirectMessage" ADD CONSTRAINT "DirectMessage_conversationId_fkey" FOREIGN KEY ("conversationId") REFERENCES "ptms"."Conversation"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "ptms"."DirectMessage" ADD CONSTRAINT "DirectMessage_senderId_fkey" FOREIGN KEY ("senderId") REFERENCES "ptms"."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- Feedback and chat images
+CREATE TABLE "ptms"."Feedback" ( "id" TEXT NOT NULL, "userId" TEXT NOT NULL, "organizationId" TEXT, "body" TEXT NOT NULL, "page" TEXT, "resolvedAt" TIMESTAMP(3), "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "Feedback_pkey" PRIMARY KEY ("id") );
+CREATE TABLE "ptms"."MessageAttachment" ( "id" TEXT NOT NULL, "messageId" TEXT, "conversationId" TEXT NOT NULL, "uploaderId" TEXT NOT NULL, "mimeType" TEXT NOT NULL, "size" INTEGER NOT NULL, "data" BYTEA NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "MessageAttachment_pkey" PRIMARY KEY ("id") );
+CREATE INDEX "Feedback_createdAt_idx" ON "ptms"."Feedback"("createdAt");
+CREATE INDEX "MessageAttachment_messageId_idx" ON "ptms"."MessageAttachment"("messageId");
+CREATE INDEX "MessageAttachment_uploaderId_createdAt_idx" ON "ptms"."MessageAttachment"("uploaderId", "createdAt");
+ALTER TABLE "ptms"."Feedback" ADD CONSTRAINT "Feedback_userId_fkey" FOREIGN KEY ("userId") REFERENCES "ptms"."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ptms"."MessageAttachment" ADD CONSTRAINT "MessageAttachment_messageId_fkey" FOREIGN KEY ("messageId") REFERENCES "ptms"."DirectMessage"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 COMMIT;

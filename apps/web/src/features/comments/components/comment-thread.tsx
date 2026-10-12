@@ -23,7 +23,7 @@ import {
   type CommentImage,
   type CommentTarget,
 } from '../api';
-import { prepareImage } from '../image-upload';
+import { prepareImage } from '@/shared/lib/image-upload';
 
 const MAX_IMAGES = 6;
 

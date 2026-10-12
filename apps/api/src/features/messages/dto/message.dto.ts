@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsOptional, IsString, MaxLength } from 'class-validator';
 import { TrimString } from '../../../common/transformers/query.transformers';
 
 export class StartConversationDto {
@@ -9,12 +9,25 @@ export class StartConversationDto {
 }
 
 export class SendMessageDto {
-  @ApiProperty()
+  @ApiPropertyOptional({ description: 'Text; may be empty when images are attached' })
+  @IsOptional()
   @TrimString()
   @IsString()
-  @MinLength(1)
   @MaxLength(5000)
-  body: string;
+  body?: string;
+
+  @ApiPropertyOptional({ type: [String], description: 'Images uploaded with POST /messages/images' })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(6)
+  @IsString({ each: true })
+  attachmentIds?: string[];
+}
+
+export class MessageImageQueryDto {
+  @ApiProperty()
+  @IsString()
+  conversationId: string;
 }
 
 export class MessagesQueryDto {

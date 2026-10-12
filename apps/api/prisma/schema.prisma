@@ -69,6 +69,7 @@ model User {
   conversationsA      Conversation[]    @relation("ConversationUserA")
   conversationsB      Conversation[]    @relation("ConversationUserB")
   directMessages      DirectMessage[]   @relation("DirectMessageSender")
+  feedback            Feedback[]
   taskAssignments     TaskAssignee[]
   createdTasks        Task[]            @relation("TaskCreator")
   ownedMilestones     Milestone[]       @relation("MilestoneOwner")
@@ -579,8 +580,43 @@ model DirectMessage {
   body           String
   createdAt      DateTime @default(now())
 
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender       User         @relation("DirectMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  conversation Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User                @relation("DirectMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  attachments  MessageAttachment[]
 
   @@index([conversationId, createdAt])
+}
+
+/// Suggestions on how the app could be better. Anyone can send one; only root admins can read them.
+model Feedback {
+  id             String    @id @default(cuid())
+  userId         String
+  /// Organization the person was working in when they wrote it (empty for root admins in the console).
+  organizationId String?
+  body           String
+  /// The page they were on, for context.
+  page           String?
+  resolvedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+}
+
+/// An image sent in a chat. Uploaded before the message is sent (messageId empty until then).
+model MessageAttachment {
+  id             String   @id @default(cuid())
+  messageId      String?
+  conversationId String
+  uploaderId     String
+  mimeType       String
+  size           Int
+  data           Bytes
+  createdAt      DateTime @default(now())
+
+  message DirectMessage? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([uploaderId, createdAt])
 }

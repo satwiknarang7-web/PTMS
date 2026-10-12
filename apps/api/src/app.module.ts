@@ -21,6 +21,7 @@ import { IssuesModule } from './features/issues/issues.module';
 import { LookupsModule } from './features/lookups/lookups.module';
 import { MeetingsModule } from './features/meetings/meetings.module';
 import { MilestonesModule } from './features/milestones/milestones.module';
+import { FeedbackModule } from './features/feedback/feedback.module';
 import { MessagesModule } from './features/messages/messages.module';
 import { NotificationsModule } from './features/notifications/notifications.module';
 import { OrganizationsModule } from './features/organizations/organizations.module';
@@ -69,6 +70,7 @@ import { PrismaModule } from './prisma/prisma.module';
     ActivityModule,
     NotificationsModule,
     MessagesModule,
+    FeedbackModule,
     DashboardModule,
     ReportsModule,
     // Platform (root account)
