@@ -82,6 +82,7 @@ export class ProjectsController {
   }
 
   @Get(':id/members')
+  @ViewerAllowed()
   members(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.projects.members(user, id);
   }

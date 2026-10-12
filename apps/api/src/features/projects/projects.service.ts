@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ActivityAction, EntityType, LookupType, NotificationType, StatusCategory } from '../../common/constants/domain.constants';
-import { isRoot, PlatformRole, ProjectRole } from '../../common/constants/roles.constants';
+import { isRoot, isViewer, PlatformRole, ProjectRole } from '../../common/constants/roles.constants';
 import { NotificationLinks } from '../../common/events/domain-events';
 import { EventPublisher } from '../../common/events/event-publisher.service';
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
@@ -61,7 +61,7 @@ export class ProjectsService {
     ]);
 
     const data = await this.withInsights(user.organizationId, projects);
-    return this.pagination.build(data, total, page);
+    return this.pagination.build(isViewer(user.role) ? data.map(withoutBudget) : data, total, page);
   }
 
   /** Portfolio-level counts for the projects page header and status tabs. */
@@ -116,7 +116,7 @@ export class ProjectsService {
       this.prisma.projectFavorite.count({ where: { userId: user.id, projectId: id } }),
     ]);
     return {
-      ...project,
+      ...(isViewer(user.role) ? withoutBudget(project) : project),
       stats,
       isFavorite: favorite > 0,
       access: { role: access.memberRole, canEdit: access.canEdit, canManage: access.canManage },
@@ -377,4 +377,9 @@ export class ProjectsService {
       throw new BadRequestException('End date must be on or after the start date');
     }
   }
+}
+
+/** Clients see progress, not budget or the hours logged against it. */
+function withoutBudget<T extends { budgetHours: number | null; loggedMinutes?: number }>(project: T): T {
+  return { ...project, budgetHours: null, ...(project.loggedMinutes !== undefined ? { loggedMinutes: 0 } : {}) };
 }

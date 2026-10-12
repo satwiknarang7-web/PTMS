@@ -189,18 +189,20 @@ export class DashboardService {
       })
       .sort((a, b) => b.openTasks - a.openTasks);
 
+    // Clients see progress, not budget, hours or how the team's work is spread.
+    const client = isViewer(user.role);
     return {
-      project: { id: project.id, name: project.name, budgetHours: project.budgetHours, endDate: project.endDate },
+      project: { id: project.id, name: project.name, budgetHours: client ? null : project.budgetHours, endDate: project.endDate },
       stats,
-      loggedMinutes: logged._sum.minutes ?? 0,
-      billableMinutes: billable._sum.minutes ?? 0,
-      estimatedHours: estimated._sum.estimatedHours ?? 0,
+      loggedMinutes: client ? 0 : (logged._sum.minutes ?? 0),
+      billableMinutes: client ? 0 : (billable._sum.minutes ?? 0),
+      estimatedHours: client ? 0 : (estimated._sum.estimatedHours ?? 0),
       tasksByStatus: this.mapCounts(lookups, LookupType.TASK_STATUS, byStatus, 'statusId'),
       tasksByPriority: this.mapCounts(lookups, LookupType.PRIORITY, byPriority, 'priorityId'),
       issuesByStatus: this.mapCounts(lookups, LookupType.ISSUE_STATUS, issuesByStatus, 'statusId'),
       issuesBySeverity: this.mapCounts(lookups, LookupType.ISSUE_SEVERITY, issuesBySeverity, 'severityId'),
       // Clients see progress and budget, not how the team's work is spread.
-      workload: isViewer(user.role) ? [] : workload,
+      workload: client ? [] : workload,
       milestones: {
         total: milestones.length,
         completed: milestones.filter((m) => m.completedAt).length,

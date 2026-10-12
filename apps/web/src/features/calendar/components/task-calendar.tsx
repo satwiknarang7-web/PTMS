@@ -240,7 +240,7 @@ export function TaskCalendar({
         </div>
         {withMeetings && showMeetings && (
           <div className="border-b border-border px-4 py-2">
-            <MeetingLegend />
+            <MeetingLegend clientOnly={clientView} />
           </div>
         )}
         <div className="scrollbar-thin overflow-x-auto">

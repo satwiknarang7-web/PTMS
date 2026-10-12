@@ -45,7 +45,7 @@ export const VIEWER_NAVIGATION: NavSection[] = [
 
 /** Paths a client may open; everything else sends them to their projects. */
 export function viewerCanOpen(pathname: string): boolean {
-  if (/^\/projects\/[^/]+\/overview$/.test(pathname)) return true;
+  if (/^\/projects\/[^/]+\/(overview|board|gantt)$/.test(pathname)) return true;
   return ([routes.projects, routes.calendar, routes.profile, routes.settings, routes.settingsAppearance] as string[]).includes(pathname);
 }
 

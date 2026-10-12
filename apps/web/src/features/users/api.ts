@@ -18,17 +18,18 @@ export function useUserDetails(id: string) {
   return useQuery({ queryKey: userKeys.details(id), queryFn: () => api.get<UserDetails>(`/users/${id}/details`), enabled: !!id });
 }
 
-export function useUsers(query: UserQuery = {}) {
+export function useUsers(query: UserQuery = {}, enabled = true) {
   return useQuery({
     queryKey: userKeys.list(query),
     queryFn: () => api.get<Paginated<User>>('/users', { ...query }),
     placeholderData: keepPreviousData,
+    enabled,
   });
 }
 
 /** Every active user of the organization, for pickers. */
-export function useActiveUsers() {
-  return useUsers({ isActive: true, limit: appConfig.boardPageSize });
+export function useActiveUsers(enabled = true) {
+  return useUsers({ isActive: true, limit: appConfig.boardPageSize }, enabled);
 }
 
 export function useCreateUser() {

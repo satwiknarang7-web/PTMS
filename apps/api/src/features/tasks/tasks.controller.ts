@@ -11,6 +11,7 @@ import {
   UpdateTaskDto,
 } from './dto/task.dto';
 import { TasksService } from './tasks.service';
+import { ViewerAllowed } from '../../common/decorators/viewer-allowed.decorator';
 
 @ApiTags('Tasks')
 @Controller('tasks')
@@ -18,11 +19,13 @@ export class TasksController {
   constructor(private readonly tasks: TasksService) {}
 
   @Get()
+  @ViewerAllowed()
   findAll(@CurrentUser() user: AuthenticatedUser, @Query() query: TaskQueryDto) {
     return this.tasks.findAll(user, query);
   }
 
   @Get('gantt')
+  @ViewerAllowed()
   gantt(@CurrentUser() user: AuthenticatedUser, @Query() query: GanttQueryDto) {
     return this.tasks.gantt(user, query.projectId);
   }

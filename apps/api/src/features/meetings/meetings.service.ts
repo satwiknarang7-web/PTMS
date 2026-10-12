@@ -44,8 +44,12 @@ export class MeetingsService {
   /** Meetings the user may see: organization-wide ones and those of projects they can open. */
   private visibleWhere(user: AuthenticatedUser): Prisma.MeetingWhereInput {
     if (isViewer(user.role)) {
-      // Clients see only the client meetings of the projects they were added to.
-      return { organizationId: user.organizationId, type: MeetingType.CLIENT, project: this.access.visibleProjectsWhere(user) };
+      // Clients see client meetings only: organization-wide ones and those of the projects they were added to.
+      return {
+        organizationId: user.organizationId,
+        type: MeetingType.CLIENT,
+        OR: [{ projectId: null }, { project: this.access.visibleProjectsWhere(user) }],
+      };
     }
     return {
       organizationId: user.organizationId,
@@ -161,15 +165,17 @@ export class MeetingsService {
     );
     if (!dueToday.length) return;
 
+    // Everyone in the organization, with clients flagged: they hear only about client meetings.
     const everyone = dueToday.some((meeting) => !meeting.project)
-      ? (await this.prisma.user.findMany({ where: { organizationId, isActive: true, role: { not: OrgRole.VIEWER } }, select: { id: true } })).map((u) => u.id)
+      ? await this.prisma.user.findMany({ where: { organizationId, isActive: true }, select: { id: true, role: true } })
       : [];
     for (const meeting of dueToday) {
       // The person who scheduled it is told too (while active), even when they are not a member of the project.
       const organizer = meeting.createdBy.isActive ? [meeting.createdById] : [];
       // Clients hear only about client meetings.
       const audience = meeting.project?.members.filter((member) => meeting.type === MeetingType.CLIENT || member.user.role !== OrgRole.VIEWER) ?? [];
-      const recipientIds = meeting.project ? [...audience.map((member) => member.userId), ...organizer] : everyone;
+      const orgAudience = everyone.filter((person) => meeting.type === MeetingType.CLIENT || person.role !== OrgRole.VIEWER).map((person) => person.id);
+      const recipientIds = meeting.project ? [...audience.map((member) => member.userId), ...organizer] : orgAudience;
       this.events.notify({
         recipientIds,
         actorId: SYSTEM_ACTOR,

@@ -88,13 +88,23 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
           tone="bg-danger-soft text-danger"
           danger={data.stats.overdueTasks > 0}
         />
-        <Kpi
-          label="Time logged"
-          value={formatMinutes(data.loggedMinutes)}
-          hint={`${formatMinutes(data.billableMinutes)} billable`}
-          icon={<Clock />}
-          tone="bg-warning-soft text-warning"
-        />
+        {clientView ? (
+          <Kpi
+            label="Target date"
+            value={data.project.endDate ? formatShortDate(data.project.endDate) : '—'}
+            hint={project ? `Owner: ${fullName(project.owner)}` : undefined}
+            icon={<Flag />}
+            tone="bg-warning-soft text-warning"
+          />
+        ) : (
+          <Kpi
+            label="Time logged"
+            value={formatMinutes(data.loggedMinutes)}
+            hint={`${formatMinutes(data.billableMinutes)} billable`}
+            icon={<Clock />}
+            tone="bg-warning-soft text-warning"
+          />
+        )}
       </Card>
 
       <div className="grid gap-5 xl:grid-cols-3">
@@ -149,6 +159,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
           )}
         </CollapsibleCard>
 
+        {!clientView && (
         <CollapsibleCard
           title="Budget"
           icon={<Wallet />}
@@ -178,6 +189,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
             )}
           </Row>
         </CollapsibleCard>
+        )}
 
         <CollapsibleCard
           title="Open issues by severity"
@@ -189,6 +201,12 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
           <BarList data={data.issuesBySeverity} emptyLabel="No open issues" />
         </CollapsibleCard>
       </div>
+
+      {clientView && (
+        <CollapsibleCard title="Updates" icon={<Activity />} storageKey="project-overview.updates" bodyClassName="p-[var(--card-p)]">
+          <ActivityFeed projectId={projectId} pageSize={10} paginated={false} />
+        </CollapsibleCard>
+      )}
 
       {!clientView && (
         <div className="grid items-start gap-5 xl:grid-cols-3">

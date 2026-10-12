@@ -62,7 +62,7 @@ export function ProjectFormModal({ open, onClose, project, onSaved }: Props) {
   const isEdit = !!project;
   const create = useCreateProject();
   const update = useUpdateProject(project?.id ?? '');
-  const { data: users } = useActiveUsers();
+  const { data: users } = useActiveUsers(open);
   // Team members may also include root admins, who belong to no organization.
   const { data: candidates } = useMemberCandidates(undefined, open && !isEdit);
   const { data: session } = useSession();

@@ -20,7 +20,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLookups } from '@/features/lookups/api';
 import { useProject, useProjectMembers } from '@/features/projects/api';
 import { appConfig } from '@/shared/config/env';
-import { LookupType, StatusCategory } from '@/shared/constants/domain';
+import { LookupType, OrgRole, StatusCategory } from '@/shared/constants/domain';
+import { useSession } from '@/features/auth/api';
 import { useDebounce } from '@/shared/hooks/use-debounce';
 import { useQueryParam } from '@/shared/hooks/use-query-param';
 import { errorMessage } from '@/shared/lib/api-client';
@@ -55,6 +56,9 @@ export function TaskBoard({ projectId }: { projectId: string }) {
   const [taskId, setTaskId] = useQueryParam('taskId');
   const [creatingIn, setCreatingIn] = useState<string | null>(null);
   const canEdit = !!project?.access.canEdit && !project.isArchived;
+  // Clients see the board only; task details, comments and time stay internal.
+  const { data: session } = useSession();
+  const clientView = session?.role === OrgRole.VIEWER;
   const move = useMoveTask();
 
   const { data, isLoading, isError, error, refetch } = useTasks({
@@ -137,7 +141,7 @@ export function TaskBoard({ projectId }: { projectId: string }) {
         <TaskFilters value={filters} onChange={setFilters} members={members?.map((m) => m.user)} hideStatus className="min-w-0 flex-1" />
         <span className="hidden items-center gap-1.5 text-xs text-muted md:inline-flex">
           <Info className="size-3.5" />
-          {canEdit ? 'Drag cards between columns to change status' : 'Click a card to see its details'}
+          {canEdit ? 'Drag cards between columns to change status' : clientView ? 'Where every task stands' : 'Click a card to see its details'}
         </span>
       </div>
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd}>
@@ -150,15 +154,15 @@ export function TaskBoard({ projectId }: { projectId: string }) {
               color={status.color}
               tasks={columns[status.id] ?? []}
               disabled={!canEdit}
-              onOpen={(task) => setTaskId(task.id)}
+              onOpen={(task) => !clientView && setTaskId(task.id)}
               onAdd={canEdit ? () => setCreatingIn(status.id) : undefined}
             />
           ))}
         </div>
         <DragOverlay>{activeTask ? <TaskCard task={activeTask} dragging /> : null}</DragOverlay>
       </DndContext>
-      <TaskFormModal open={!!creatingIn} onClose={() => setCreatingIn(null)} projectId={projectId} defaults={creatingIn ? { statusId: creatingIn } : undefined} />
-      <TaskDetailDrawer taskId={taskId} onClose={() => setTaskId(null)} onOpenTask={setTaskId} />
+      {!clientView && <TaskFormModal open={!!creatingIn} onClose={() => setCreatingIn(null)} projectId={projectId} defaults={creatingIn ? { statusId: creatingIn } : undefined} />}
+      {!clientView && <TaskDetailDrawer taskId={taskId} onClose={() => setTaskId(null)} onOpenTask={setTaskId} />}
     </div>
   );
 }

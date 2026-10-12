@@ -22,8 +22,13 @@ const PRIMARY_VIEWS = 5;
 
 /** Views of a project, in tab order; the main table is the project's home. */
 function projectViews(id: string, canManage: boolean, clientView: boolean): TabItem[] {
-  // Clients see the project's dashboard only.
-  if (clientView) return [{ href: routes.projectOverview(id), label: 'Dashboard', icon: <LayoutDashboard className={icon} /> }];
+  // Clients follow progress read-only: the dashboard, the board and the timeline.
+  if (clientView)
+    return [
+      { href: routes.projectOverview(id), label: 'Dashboard', icon: <LayoutDashboard className={icon} /> },
+      { href: routes.projectBoard(id), label: 'Kanban', icon: <KanbanSquare className={icon} /> },
+      { href: routes.projectGantt(id), label: 'Gantt', icon: <BarChartHorizontal className={icon} /> },
+    ];
   return [
     { href: routes.project(id), label: 'Main table', icon: <Table2 className={icon} />, exact: true },
     { href: routes.projectBoard(id), label: 'Kanban', icon: <KanbanSquare className={icon} /> },

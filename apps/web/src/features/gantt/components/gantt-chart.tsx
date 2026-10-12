@@ -3,6 +3,7 @@
 import { BarChartHorizontal, Diamond, Info } from 'lucide-react';
 import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { useSession } from '@/features/auth/api';
+import { OrgRole } from '@/shared/constants/domain';
 import { useProject } from '@/features/projects/api';
 import { useGantt, useUpdateTask } from '@/features/tasks/api';
 import { TaskDetailDrawer } from '@/features/tasks/components/task-detail-drawer';
@@ -80,7 +81,12 @@ export function GanttChart({ projectId }: { projectId: string }) {
   const update = useUpdateTask();
   const [zoom, setZoom] = useState<GanttZoom>('week');
   const [drag, setDrag] = useState<DragState | null>(null);
-  const [taskId, setTaskId] = useQueryParam('taskId');
+  const [taskId, setTaskIdParam] = useQueryParam('taskId');
+  // Clients see the timeline only; task details stay internal.
+  const clientView = session?.role === OrgRole.VIEWER;
+  const setTaskId = (id: string | null) => {
+    if (!clientView) setTaskIdParam(id);
+  };
   const scrollRef = useRef<HTMLDivElement>(null);
   const pxPerDay = GANTT_ZOOM[zoom];
 
@@ -320,7 +326,7 @@ export function GanttChart({ projectId }: { projectId: string }) {
           </div>
         </div>
       </Card>
-      <TaskDetailDrawer taskId={taskId} onClose={() => setTaskId(null)} onOpenTask={setTaskId} />
+      {!clientView && <TaskDetailDrawer taskId={taskId} onClose={() => setTaskId(null)} onOpenTask={setTaskId} />}
     </div>
   );
 }
