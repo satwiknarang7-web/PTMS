@@ -1,3 +1,4 @@
+import { MessageCircle } from 'lucide-react';
 import { BarChart3, Building2, CalendarCheck, CalendarDays, Clock, FolderKanban, House, LayoutDashboard, Settings, ShieldCheck, Users, type LucideIcon } from 'lucide-react';
 import { Permission } from '@/shared/constants/domain';
 import { routes } from './routes';
@@ -9,7 +10,7 @@ export interface NavItem {
   /** Hidden unless the user holds this permission. */
   permission?: Permission;
   /** Counter shown as a badge (key of the nav-counts API response). */
-  badge?: 'myOpenTasks';
+  badge?: 'myOpenTasks' | 'unreadMessages';
 }
 
 export interface NavSection {
@@ -25,6 +26,7 @@ export const NAVIGATION: NavSection[] = [
       { label: 'Home', href: routes.home, icon: House },
       { label: 'My work', href: routes.myWork, icon: CalendarCheck, badge: 'myOpenTasks' },
       { label: 'Calendar', href: routes.calendar, icon: CalendarDays },
+      { label: 'Messages', href: routes.messages, icon: MessageCircle, badge: 'unreadMessages' },
       { label: 'People', href: routes.people, icon: Users, permission: Permission.USERS_MANAGE },
       { label: 'Timesheets', href: routes.timesheets, icon: Clock },
       { label: 'Reports', href: routes.reports, icon: BarChart3, permission: Permission.REPORTS_VIEW },
@@ -39,6 +41,7 @@ export const VIEWER_NAVIGATION: NavSection[] = [
     items: [
       { label: 'Projects', href: routes.projects, icon: FolderKanban },
       { label: 'Calendar', href: routes.calendar, icon: CalendarDays },
+      { label: 'Messages', href: routes.messages, icon: MessageCircle, badge: 'unreadMessages' },
     ],
   },
 ];
@@ -46,7 +49,7 @@ export const VIEWER_NAVIGATION: NavSection[] = [
 /** Paths a client may open; everything else sends them to their projects. */
 export function viewerCanOpen(pathname: string): boolean {
   if (/^\/projects\/[^/]+\/(overview|board|gantt)$/.test(pathname)) return true;
-  return ([routes.projects, routes.calendar, routes.profile, routes.settings, routes.settingsAppearance] as string[]).includes(pathname);
+  return ([routes.projects, routes.calendar, routes.messages, routes.profile, routes.settings, routes.settingsAppearance] as string[]).includes(pathname);
 }
 
 /** Pinned to the bottom of the workspace sidebar. */

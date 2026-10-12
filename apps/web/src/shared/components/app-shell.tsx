@@ -26,6 +26,7 @@ import { useNavCounts } from '@/features/dashboard/api';
 import { NotificationBell } from '@/features/notifications/components/notification-bell';
 import { useExitWorkspace } from '@/features/platform/api';
 import { ProjectsNav } from '@/features/projects/components/projects-nav';
+import { useUnreadMessages } from '@/features/messages/api';
 import { GlobalSearch } from '@/features/search/components/global-search';
 import { appConfig } from '@/shared/config/env';
 import { FOOTER_NAVIGATION, NAVIGATION, PLATFORM_NAVIGATION, SETTINGS_NAVIGATION, VIEWER_NAVIGATION, viewerCanOpen, type NavItem, type NavSection } from '@/shared/config/navigation';
@@ -154,7 +155,9 @@ interface SidebarProps {
 }
 
 function Sidebar({ user, pathname, navigation, workspace, tenant, onClose, collapsed, onToggleCollapse }: SidebarProps) {
-  const { data: counts } = useNavCounts(tenant);
+  const { data: navCounts } = useNavCounts(tenant);
+  const { data: unreadMessages } = useUnreadMessages(tenant);
+  const counts = { ...navCounts, unreadMessages: unreadMessages?.count };
   const visible = (items: NavItem[]) => items.filter((item) => !item.permission || user.permissions.includes(item.permission));
 
   return (

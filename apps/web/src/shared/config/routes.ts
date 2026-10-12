@@ -22,6 +22,7 @@ export const routes = {
   projectActivity: (id: string) => `/projects/${id}/activity`,
   projectSettings: (id: string) => `/projects/${id}/settings`,
   calendar: '/calendar',
+  messages: '/messages',
   people: '/people',
   person: (id: string) => `/people/${id}`,
   timesheets: '/timesheets',

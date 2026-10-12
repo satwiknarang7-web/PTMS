@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle, ArrowLeft, Bug, CheckCircle2, Clock, Flag, FolderKanban, ListTodo, Mail, Users } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, MessageCircle, Bug, CheckCircle2, Clock, Flag, FolderKanban, ListTodo, Mail, Users } from 'lucide-react';
 import Link from 'next/link';
 import { routes } from '@/shared/config/routes';
 import { OrgRole, roleLabel } from '@/shared/constants/domain';
@@ -54,6 +54,14 @@ function PersonDetailsContent({ userId }: { userId: string }) {
             <span>Joined {formatDate(user.createdAt)}</span>
           </p>
         </div>
+        {user.isActive && (
+          <Link
+            href={`${routes.messages}?to=${user.id}`}
+            className="inline-flex h-9 items-center gap-1.5 self-start rounded-ui border border-border bg-surface px-3 text-sm font-medium shadow-ui-sm hover:bg-surface-hover sm:self-center"
+          >
+            <MessageCircle className="size-4" /> Message
+          </Link>
+        )}
       </Card>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

@@ -57,4 +57,5 @@ export const NotificationLinks = {
   /** `day` is a YYYY-MM-DD date in the organization's time zone. */
   calendar: (day: string) => `/calendar?date=${day}`,
   projectTimesheet: (projectId: string) => `/projects/${projectId}/timesheets`,
+  conversation: (conversationId: string) => `/messages?c=${conversationId}`,
 };

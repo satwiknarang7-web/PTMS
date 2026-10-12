@@ -19,6 +19,7 @@ async function bootstrap() {
   app.use(cookieParser());
   // Comment images are uploaded as raw bytes (the JSON body limit stays small everywhere else).
   app.use(`/${appConfig.apiPrefix}/comments/images`, raw({ type: 'image/*', limit: '3mb' }));
+  app.use(`/${appConfig.apiPrefix}/users/me/photo`, raw({ type: 'image/*', limit: '1mb' }));
   app.setGlobalPrefix(appConfig.apiPrefix);
   app.enableCors({ origin: appConfig.corsOrigins, credentials: true });
   app.useGlobalPipes(

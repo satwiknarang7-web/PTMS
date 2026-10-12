@@ -148,4 +148,58 @@ INSERT INTO "ptms"."Lookup" (id, "organizationId", type, name, color, category, 
 INSERT INTO "ptms"."Lookup" (id, "organizationId", type, name, color, category, "position", "isDefault", "createdAt", "updatedAt") VALUES ('cmv2dvx9f000o7dartszedj8d', 'cmv2dvx9b00027dardqnsfrth', 'ISSUE_SEVERITY', 'Critical', '#ff642e', NULL, 2, false, '2026-10-10 12:41:59.331', '2026-10-10 12:41:59.331');
 INSERT INTO "ptms"."Lookup" (id, "organizationId", type, name, color, category, "position", "isDefault", "createdAt", "updatedAt") VALUES ('cmv2dvx9f000p7darymzs005h', 'cmv2dvx9b00027dardqnsfrth', 'ISSUE_SEVERITY', 'Show Stopper', '#e2445c', NULL, 3, false, '2026-10-10 12:41:59.331', '2026-10-10 12:41:59.331');
 INSERT INTO "ptms"."User" (id, "organizationId", email, "passwordHash", "firstName", "lastName", "jobTitle", "avatarUrl", role, "isActive", "hourlyRate", "lastLoginAt", "createdAt", "updatedAt") VALUES ('cmv2dvx8y00017dar44q1oq50', NULL, 'satwik.narang@segueit.com', '$2b$12$maezZivQdTZmD1ezBsVfd.rkP6K.Y7gP0rQL0308Jr0zgWM2TZvz2', 'Satwik', 'Narang', 'Platform Administrator', NULL, 'ROOT', true, NULL, NULL, '2026-10-10 12:41:59.313', '2026-10-10 12:41:59.313');
+-- Comment images, profile photos and one-to-one chats
+CREATE TABLE "ptms"."UserPhoto" (
+    "userId" TEXT NOT NULL,
+    "mimeType" TEXT NOT NULL,
+    "data" BYTEA NOT NULL,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "UserPhoto_pkey" PRIMARY KEY ("userId")
+);
+CREATE TABLE "ptms"."CommentAttachment" (
+    "id" TEXT NOT NULL,
+    "commentId" TEXT,
+    "projectId" TEXT NOT NULL,
+    "uploaderId" TEXT NOT NULL,
+    "mimeType" TEXT NOT NULL,
+    "size" INTEGER NOT NULL,
+    "data" BYTEA NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "CommentAttachment_pkey" PRIMARY KEY ("id")
+);
+CREATE TABLE "ptms"."Conversation" (
+    "id" TEXT NOT NULL,
+    "organizationId" TEXT NOT NULL,
+    "userAId" TEXT NOT NULL,
+    "userBId" TEXT NOT NULL,
+    "userAReadAt" TIMESTAMP(3),
+    "userBReadAt" TIMESTAMP(3),
+    "lastMessageAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Conversation_pkey" PRIMARY KEY ("id")
+);
+CREATE TABLE "ptms"."DirectMessage" (
+    "id" TEXT NOT NULL,
+    "conversationId" TEXT NOT NULL,
+    "senderId" TEXT NOT NULL,
+    "body" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "DirectMessage_pkey" PRIMARY KEY ("id")
+);
+CREATE INDEX "CommentAttachment_commentId_idx" ON "ptms"."CommentAttachment"("commentId");
+CREATE INDEX "CommentAttachment_uploaderId_createdAt_idx" ON "ptms"."CommentAttachment"("uploaderId", "createdAt");
+CREATE INDEX "Conversation_userAId_idx" ON "ptms"."Conversation"("userAId");
+CREATE INDEX "Conversation_userBId_idx" ON "ptms"."Conversation"("userBId");
+CREATE UNIQUE INDEX "Conversation_organizationId_userAId_userBId_key" ON "ptms"."Conversation"("organizationId", "userAId", "userBId");
+CREATE INDEX "DirectMessage_conversationId_createdAt_idx" ON "ptms"."DirectMessage"("conversationId", "createdAt");
+ALTER TABLE "ptms"."UserPhoto" ADD CONSTRAINT "UserPhoto_userId_fkey" FOREIGN KEY ("userId") REFERENCES "ptms"."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ptms"."CommentAttachment" ADD CONSTRAINT "CommentAttachment_commentId_fkey" FOREIGN KEY ("commentId") REFERENCES "ptms"."Comment"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ptms"."Conversation" ADD CONSTRAINT "Conversation_userAId_fkey" FOREIGN KEY ("userAId") REFERENCES "ptms"."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ptms"."Conversation" ADD CONSTRAINT "Conversation_userBId_fkey" FOREIGN KEY ("userBId") REFERENCES "ptms"."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ptms"."DirectMessage" ADD CONSTRAINT "DirectMessage_conversationId_fkey" FOREIGN KEY ("conversationId") REFERENCES "ptms"."Conversation"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ptms"."DirectMessage" ADD CONSTRAINT "DirectMessage_senderId_fkey" FOREIGN KEY ("senderId") REFERENCES "ptms"."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 COMMIT;

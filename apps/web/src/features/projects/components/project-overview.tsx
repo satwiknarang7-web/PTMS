@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  MessageCircle,
   Activity,
   AlertTriangle,
   Bug,
@@ -13,7 +14,9 @@ import {
   Wallet,
   BarChart3,
 } from 'lucide-react';
+import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { routes } from '@/shared/config/routes';
 import { ActivityFeed } from '@/features/activity/components/activity-feed';
 import { useSession } from '@/features/auth/api';
 import { OrgRole } from '@/shared/constants/domain';
@@ -201,6 +204,49 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
           <BarList data={data.issuesBySeverity} emptyLabel="No open issues" />
         </CollapsibleCard>
       </div>
+
+      {clientView && !!data.team?.length && (
+        <CollapsibleCard
+          title="Your team"
+          description="Who is working on what. Message anyone directly."
+          icon={<Users />}
+          meta={data.team.length}
+          storageKey="project-overview.team"
+          bodyClassName="divide-y divide-border"
+        >
+          {data.team.map(({ user, tasks }) => (
+            <div key={user.id} className="flex flex-col gap-3 px-[var(--card-p)] py-3 sm:flex-row sm:items-start">
+              <div className="flex min-w-0 items-center gap-3 sm:w-64 sm:shrink-0">
+                <Avatar user={user} size="md" />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{fullName(user)}</p>
+                  <p className="truncate text-xs text-muted">{user.jobTitle || 'Team member'}</p>
+                </div>
+              </div>
+              <div className="min-w-0 flex-1 space-y-1">
+                {tasks.length ? (
+                  tasks.slice(0, 5).map((task) => (
+                    <p key={task.id} className="flex items-center gap-2 text-sm">
+                      <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: task.status.color }} title={task.status.name} />
+                      <span className="min-w-0 truncate">{task.title}</span>
+                      <span className="shrink-0 text-xs text-muted">{task.status.name}</span>
+                    </p>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted">No open tasks right now</p>
+                )}
+                {tasks.length > 5 && <p className="text-xs text-muted">and {tasks.length - 5} more</p>}
+              </div>
+              <Link
+                href={`${routes.messages}?to=${user.id}`}
+                className="inline-flex h-8 shrink-0 items-center gap-1.5 self-start rounded-ui border border-border bg-surface px-3 text-sm font-medium shadow-ui-sm hover:bg-surface-hover"
+              >
+                <MessageCircle className="size-4" /> Message
+              </Link>
+            </div>
+          ))}
+        </CollapsibleCard>
+      )}
 
       {clientView && (
         <CollapsibleCard title="Updates" icon={<Activity />} storageKey="project-overview.updates" bodyClassName="p-[var(--card-p)]">

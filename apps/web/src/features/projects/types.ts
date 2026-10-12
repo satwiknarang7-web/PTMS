@@ -102,6 +102,11 @@ export interface ProjectDashboard {
   issuesByStatus: LookupCount[];
   issuesBySeverity: LookupCount[];
   workload: { user: UserSummary; role: string; openTasks: number; overdueTasks: number }[];
+  /** Clients only: who works on the project and on which open tasks. */
+  team?: {
+    user: UserSummary & { jobTitle: string | null };
+    tasks: { id: string; number: number; title: string; dueDate: string | null; status: { name: string; color: string } }[];
+  }[];
   milestones: {
     total: number;
     completed: number;

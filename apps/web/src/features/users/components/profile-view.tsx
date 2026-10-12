@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuthConfig, useLogout, useSession } from '@/features/auth/api';
 import { passwordSchema } from '@/features/auth/schemas';
 import { routes } from '@/shared/config/routes';
@@ -16,7 +16,9 @@ import { CollapsibleCard } from '@/shared/ui/collapsible';
 import { Spinner } from '@/shared/ui/feedback';
 import { Field, Input } from '@/shared/ui/form';
 import { PageHeader } from '@/shared/ui/layout';
-import { useChangePassword, useUpdateProfile } from '../api';
+import { squarePhoto, useChangePassword, useSetProfilePhoto, useUpdateProfile } from '../api';
+import { Camera } from 'lucide-react';
+import { toast } from 'sonner';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { authApi } from '@/features/auth/api';
 import { AuthenticatorSetup, RecoveryCodes } from '@/features/auth/components/two-factor-steps';
@@ -25,7 +27,7 @@ import { FormAlert } from '@/shared/ui/form';
 export function ProfileView() {
   const { data: user } = useSession();
   const update = useUpdateProfile();
-  const [values, setValues] = useState({ firstName: '', lastName: '', jobTitle: '', avatarUrl: '' });
+  const [values, setValues] = useState({ firstName: '', lastName: '', jobTitle: '' });
 
   useEffect(() => {
     if (user)
@@ -33,7 +35,6 @@ export function ProfileView() {
         firstName: user.firstName,
         lastName: user.lastName,
         jobTitle: user.jobTitle ?? '',
-        avatarUrl: user.avatarUrl ?? '',
       });
   }, [user]);
 
@@ -45,7 +46,7 @@ export function ProfileView() {
       <div className="max-w-4xl space-y-4">
         <Card>
           <CardBody className="flex flex-wrap items-center gap-4">
-            <Avatar user={user} size="lg" />
+            <ProfilePhoto user={user} />
             <div className="min-w-0 flex-1 basis-40">
               <p className="flex flex-wrap items-center gap-2 font-semibold">
                 {user.firstName} {user.lastName}
@@ -60,7 +61,7 @@ export function ProfileView() {
           <CollapsibleCard
             storageKey="profile.details"
             title="Personal details"
-            description="Name, job title and avatar shown to your teammates."
+            description="Name and job title shown to your teammates."
             bodyClassName="grid gap-4 p-[var(--card-p)] sm:grid-cols-2"
           >
             <Field label="First name">
@@ -72,14 +73,6 @@ export function ProfileView() {
             <Field label="Job title">
               <Input value={values.jobTitle} onChange={(e) => setValues({ ...values, jobTitle: e.target.value })} />
             </Field>
-            <Field label="Avatar URL">
-              <Input
-                type="url"
-                placeholder="https://…"
-                value={values.avatarUrl}
-                onChange={(e) => setValues({ ...values, avatarUrl: e.target.value })}
-              />
-            </Field>
             <div className="sm:col-span-2">
               <Button
                 loading={update.isPending}
@@ -89,7 +82,6 @@ export function ProfileView() {
                     firstName: values.firstName.trim(),
                     lastName: values.lastName.trim(),
                     jobTitle: values.jobTitle.trim() || null,
-                    avatarUrl: values.avatarUrl.trim() || null,
                   })
                 }
               >
@@ -102,6 +94,54 @@ export function ProfileView() {
         </div>
       </div>
     </>
+  );
+}
+
+/** The avatar with buttons to upload a new photo or remove it. */
+function ProfilePhoto({ user }: { user: { firstName: string; lastName: string; avatarUrl?: string | null } }) {
+  const setPhoto = useSetProfilePhoto();
+  const input = useRef<HTMLInputElement>(null);
+  return (
+    <div className="flex items-center gap-3">
+      <button
+        type="button"
+        onClick={() => input.current?.click()}
+        className="group relative rounded-full"
+        aria-label="Change profile photo"
+        title="Change profile photo"
+      >
+        <Avatar user={user} size="lg" />
+        <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/45 text-white opacity-0 transition group-hover:opacity-100">
+          <Camera className="size-5" />
+        </span>
+      </button>
+      <div className="flex flex-col items-start gap-1">
+        <Button size="sm" variant="secondary" loading={setPhoto.isPending} onClick={() => input.current?.click()}>
+          <Camera /> {user.avatarUrl ? 'Change photo' : 'Add photo'}
+        </Button>
+        {user.avatarUrl && (
+          <button type="button" className="text-xs font-medium text-muted hover:text-danger" onClick={() => setPhoto.mutate(null)}>
+            Remove photo
+          </button>
+        )}
+      </div>
+      <input
+        ref={input}
+        type="file"
+        accept="image/jpeg,image/png,image/gif,image/webp"
+        hidden
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          e.target.value = '';
+          if (!file) return;
+          try {
+            setPhoto.mutate(await squarePhoto(file));
+          } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'This image could not be read');
+          }
+        }}
+      />
+    </div>
   );
 }
 

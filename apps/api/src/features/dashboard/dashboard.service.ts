@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Lookup, Prisma } from '@prisma/client';
 import { LookupType, StatusCategory } from '../../common/constants/domain.constants';
-import { isViewer } from '../../common/constants/roles.constants';
+import { isViewer, OrgRole } from '../../common/constants/roles.constants';
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { addDays, isOverdue, overdueCutoff, startOfWeekUtc } from '../../common/utils/date.util';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -191,6 +191,8 @@ export class DashboardService {
 
     // Clients see progress, not budget, hours or how the team's work is spread.
     const client = isViewer(user.role);
+    // ...but they do see who works on what, so they can reach the right person.
+    const team = client ? await this.clientTeam(projectId) : [];
     return {
       project: { id: project.id, name: project.name, budgetHours: client ? null : project.budgetHours, endDate: project.endDate },
       stats,
@@ -203,6 +205,7 @@ export class DashboardService {
       issuesBySeverity: this.mapCounts(lookups, LookupType.ISSUE_SEVERITY, issuesBySeverity, 'severityId'),
       // Clients see progress and budget, not how the team's work is spread.
       workload: client ? [] : workload,
+      team,
       milestones: {
         total: milestones.length,
         completed: milestones.filter((m) => m.completedAt).length,
@@ -210,6 +213,33 @@ export class DashboardService {
         next: milestones.find((m) => !m.completedAt) ?? null,
       },
     };
+  }
+
+  /** The project's team as clients see it: each person with the open tasks they are working on. */
+  private async clientTeam(projectId: string) {
+    const [members, tasks] = await Promise.all([
+      this.prisma.projectMember.findMany({
+        where: { projectId, user: { isActive: true, role: { not: OrgRole.VIEWER } } },
+        select: { user: { select: { ...USER_SUMMARY_SELECT, jobTitle: true } } },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.task.findMany({
+        where: { projectId, status: { category: { not: StatusCategory.CLOSED } }, assignees: { some: {} } },
+        select: {
+          id: true,
+          number: true,
+          title: true,
+          dueDate: true,
+          status: { select: { name: true, color: true } },
+          assignees: { select: { userId: true } },
+        },
+        orderBy: [{ dueDate: { sort: 'asc', nulls: 'last' } }, { number: 'asc' }],
+      }),
+    ]);
+    return members.map(({ user }) => ({
+      user,
+      tasks: tasks.filter((task) => task.assignees.some((a) => a.userId === user.id)).map(({ assignees: _, ...task }) => task),
+    }));
   }
 
   /** Joins grouped counts with lookup metadata, keeping configured order and zero buckets. */

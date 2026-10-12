@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { hasPermission, Permission } from '../../common/constants/permissions.constants';
-import { normalizeRole, OrgRole, ProjectRole } from '../../common/constants/roles.constants';
+import { isRoot, normalizeRole, OrgRole, ProjectRole } from '../../common/constants/roles.constants';
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { Paginated, PaginationService } from '../../common/pagination/pagination.service';
 import { StatusCategory } from '../../common/constants/domain.constants';
@@ -20,11 +20,13 @@ import {
   UpdateUserDto,
   UserQueryDto,
 } from './dto/user.dto';
+import { detectImageType } from '../../common/utils/image.util';
 import { PasswordService } from './password.service';
 import { PublicUser, USER_DIRECTORY_SELECT, USER_PUBLIC_SELECT, USER_SUMMARY_SELECT } from './users.select';
 
 /** Open tasks / issues listed on a member's details page. */
 const DETAILS_LIST_SIZE = 50;
+const MAX_PHOTO_BYTES = 1024 * 1024;
 const DETAILS_RECENT_SIZE = 15;
 /** Window for the "last 30 days" figures. */
 const DETAILS_WINDOW_DAYS = 30;
@@ -340,5 +342,32 @@ export class UsersService {
     if (role === OrgRole.PROJECT_COORDINATOR && !hasPermission(actor.role, Permission.COORDINATORS_MANAGE)) {
       throw new ForbiddenException('Only the root account can appoint a project coordinator');
     }
+  }
+
+  /** Saves the person's profile photo and points their avatar at it. */
+  async setPhoto(userId: string, data: Buffer | undefined): Promise<PublicUser> {
+    if (!Buffer.isBuffer(data) || !data.length) throw new BadRequestException('Choose a photo');
+    if (data.length > MAX_PHOTO_BYTES) throw new BadRequestException('The photo can be at most 1 MB');
+    const mimeType = detectImageType(data);
+    await this.prisma.userPhoto.upsert({
+      where: { userId },
+      create: { userId, mimeType, data: new Uint8Array(data) },
+      update: { mimeType, data: new Uint8Array(data) },
+    });
+    // The version in the address makes browsers fetch the new photo instead of a cached one.
+    return this.prisma.user.update({ where: { id: userId }, data: { avatarUrl: `/api/users/${userId}/photo?v=${Date.now()}` }, select: USER_PUBLIC_SELECT });
+  }
+
+  async removePhoto(userId: string): Promise<PublicUser> {
+    await this.prisma.userPhoto.deleteMany({ where: { userId } });
+    return this.prisma.user.update({ where: { id: userId }, data: { avatarUrl: null }, select: USER_PUBLIC_SELECT });
+  }
+
+  /** A profile photo, for people of the same organization (root admins' photos are visible to all). */
+  async photo(viewer: { role: string; organizationId: string | null }, userId: string) {
+    const photo = await this.prisma.userPhoto.findUnique({ where: { userId }, include: { user: { select: { organizationId: true } } } });
+    const visible = photo && (isRoot(viewer.role) || !photo.user.organizationId || photo.user.organizationId === viewer.organizationId);
+    if (!photo || !visible) throw new NotFoundException('Photo not found');
+    return photo;
   }
 }

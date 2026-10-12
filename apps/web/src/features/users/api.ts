@@ -95,3 +95,34 @@ export function useChangePassword() {
     meta: { silentError: true },
   });
 }
+
+/** Profile photo: a square, shrunk copy of the picked image (see squarePhoto). */
+export function useSetProfilePhoto() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (photo: Blob | null) => (photo ? api.post<User>('/users/me/photo', photo) : api.delete<User>('/users/me/photo')),
+    meta: { successMessage: 'Profile photo updated' },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: authKeys.session });
+      void queryClient.invalidateQueries({ queryKey: userKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ['projects'] });
+    },
+  });
+}
+
+/** Crops the picked image to a centred square and shrinks it to 400×400 JPEG (also drops photo location data). */
+export async function squarePhoto(file: File): Promise<Blob> {
+  if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) throw new Error('Choose a JPEG, PNG, GIF or WebP image');
+  const bitmap = await createImageBitmap(file);
+  const side = Math.min(bitmap.width, bitmap.height);
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 400;
+  const context = canvas.getContext('2d')!;
+  context.fillStyle = '#ffffff';
+  context.fillRect(0, 0, 400, 400);
+  context.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, 400, 400);
+  bitmap.close();
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.88));
+  if (!blob) throw new Error('This image could not be read');
+  return blob;
+}

@@ -1,11 +1,12 @@
-import { Body, Controller, Delete, ForbiddenException, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, Header, HttpCode, HttpStatus, Param, Patch, Post, Query, Req, Res } from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { ApiTags } from '@nestjs/swagger';
 import { hasPermission, Permission } from '../../common/constants/permissions.constants';
 import { isRoot } from '../../common/constants/roles.constants';
 import { AccountScope, ForAccounts } from '../../common/decorators/account-scope.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
-import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
+import { AuthenticatedUser, Principal } from '../../common/interfaces/authenticated-user.interface';
 import {
   ChangePasswordDto,
   CreateUserDto,
@@ -35,6 +36,32 @@ export class UsersController {
   @ForAccounts(AccountScope.ANY)
   updateProfile(@CurrentUser('id') userId: string, @Body() dto: UpdateProfileDto) {
     return this.users.updateProfile(userId, dto);
+  }
+
+  /** Uploads a profile photo (raw image bytes, e.g. Content-Type: image/jpeg). */
+  @Post('me/photo')
+  @ViewerAllowed()
+  @ForAccounts(AccountScope.ANY)
+  setPhoto(@CurrentUser('id') userId: string, @Req() req: Request) {
+    return this.users.setPhoto(userId, req.body as Buffer | undefined);
+  }
+
+  @Delete('me/photo')
+  @ViewerAllowed()
+  @ForAccounts(AccountScope.ANY)
+  removePhoto(@CurrentUser('id') userId: string) {
+    return this.users.removePhoto(userId);
+  }
+
+  @Get(':id/photo')
+  @ViewerAllowed()
+  @ForAccounts(AccountScope.ANY)
+  @Header('Cache-Control', 'private, max-age=31536000, immutable')
+  @Header('X-Content-Type-Options', 'nosniff')
+  async photo(@CurrentUser() viewer: Principal, @Param('id') id: string, @Res() res: Response) {
+    const photo = await this.users.photo(viewer, id);
+    res.type(photo.mimeType).setHeader('Content-Disposition', 'inline');
+    res.send(Buffer.from(photo.data));
   }
 
   @Post('me/password')

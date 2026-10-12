@@ -65,6 +65,10 @@ model User {
   refreshTokens       RefreshToken[]
   ownedProjects       Project[]         @relation("ProjectOwner")
   memberships         ProjectMember[]
+  photo               UserPhoto?
+  conversationsA      Conversation[]    @relation("ConversationUserA")
+  conversationsB      Conversation[]    @relation("ConversationUserB")
+  directMessages      DirectMessage[]   @relation("DirectMessageSender")
   taskAssignments     TaskAssignee[]
   createdTasks        Task[]            @relation("TaskCreator")
   ownedMilestones     Milestone[]       @relation("MilestoneOwner")
@@ -379,6 +383,16 @@ model Comment {
   @@index([issueId])
 }
 
+/// A person's profile photo (shown wherever their avatar appears). Kept in the database, like comment images.
+model UserPhoto {
+  userId    String   @id
+  mimeType  String
+  data      Bytes
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
 /// An image attached to a comment. Uploaded before the comment is posted (commentId empty until then);
 /// unused uploads are cleared after a day. Stored in the database so no file storage service is needed.
 model CommentAttachment {
@@ -535,4 +549,38 @@ model RateLimit {
   rejected     Boolean   @default(false)
 
   @@index([expiresAt])
+}
+
+/// A one-to-one chat between two people of an organization (userA is the smaller id, so a pair has one chat).
+model Conversation {
+  id             String    @id @default(cuid())
+  organizationId String
+  userAId        String
+  userBId        String
+  /// When each side last read the chat; newer messages from the other side count as unread.
+  userAReadAt    DateTime?
+  userBReadAt    DateTime?
+  lastMessageAt  DateTime?
+  createdAt      DateTime  @default(now())
+
+  userA    User            @relation("ConversationUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB    User            @relation("ConversationUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  messages DirectMessage[]
+
+  @@unique([organizationId, userAId, userBId])
+  @@index([userAId])
+  @@index([userBId])
+}
+
+model DirectMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  senderId       String
+  body           String
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation("DirectMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
 }
