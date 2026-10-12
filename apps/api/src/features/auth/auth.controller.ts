@@ -1,26 +1,16 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { AccountScope, ForAccounts } from '../../common/decorators/account-scope.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { Principal } from '../../common/interfaces/authenticated-user.interface';
-import { configuration } from '../../config/configuration';
+import { StrictThrottle } from '../../common/rate-limit/strict-throttle.decorator';
 import { AuthCookieService } from './auth-cookie.service';
 import { AuthService } from './auth.service';
 import { AuthenticatorCodeDto, ChallengeDto, LoginDto, TwoFactorCodeDto } from './dto/auth.dto';
 import { ClientMeta } from './token.service';
 import { ViewerAllowed } from '../../common/decorators/viewer-allowed.decorator';
-
-/** Stricter rate limit for credential endpoints; resolved lazily at request time once env is loaded. */
-const authThrottle = () =>
-  Throttle({
-    default: {
-      limit: () => configuration().throttle.authLimit,
-      ttl: () => configuration().throttle.ttlMs,
-    },
-  });
 
 @ApiTags('Auth')
 @ViewerAllowed()
@@ -42,7 +32,7 @@ export class AuthController {
    * session: `two_factor_required` (enter a code) or `two_factor_setup_required` (scan the QR code first).
    */
   @Public()
-  @authThrottle()
+  @StrictThrottle()
   @HttpCode(HttpStatus.OK)
   @Post('login')
   async login(@Body() dto: LoginDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
@@ -54,7 +44,7 @@ export class AuthController {
   }
 
   @Public()
-  @authThrottle()
+  @StrictThrottle()
   @HttpCode(HttpStatus.OK)
   @Post('two-factor/verify')
   async verifyTwoFactor(@Body() dto: TwoFactorCodeDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
@@ -66,7 +56,7 @@ export class AuthController {
 
   /** First sign-in: returns the QR code and key for the authenticator app. */
   @Public()
-  @authThrottle()
+  @StrictThrottle()
   @HttpCode(HttpStatus.OK)
   @Post('two-factor/setup')
   setupTwoFactor(@Body() dto: ChallengeDto) {
@@ -75,7 +65,7 @@ export class AuthController {
 
   /** Confirms the authenticator with a first code; signs in and returns the one-time recovery codes. */
   @Public()
-  @authThrottle()
+  @StrictThrottle()
   @HttpCode(HttpStatus.OK)
   @Post('two-factor/activate')
   async activateTwoFactor(@Body() dto: TwoFactorCodeDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
@@ -100,6 +90,7 @@ export class AuthController {
   }
 
   @Post('two-factor/enable/confirm')
+  @StrictThrottle()
   @HttpCode(HttpStatus.OK)
   @ForAccounts(AccountScope.ANY)
   activateOwnTwoFactor(@CurrentUser('id') userId: string, @Body() dto: AuthenticatorCodeDto) {
@@ -107,6 +98,7 @@ export class AuthController {
   }
 
   @Post('two-factor/disable')
+  @StrictThrottle()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ForAccounts(AccountScope.ANY)
   disableOwnTwoFactor(@CurrentUser('id') userId: string, @Body() dto: AuthenticatorCodeDto) {
@@ -114,6 +106,7 @@ export class AuthController {
   }
 
   @Post('two-factor/recovery-codes')
+  @StrictThrottle()
   @HttpCode(HttpStatus.OK)
   @ForAccounts(AccountScope.ANY)
   regenerateRecoveryCodes(@CurrentUser('id') userId: string, @Body() dto: AuthenticatorCodeDto) {
@@ -121,7 +114,7 @@ export class AuthController {
   }
 
   @Public()
-  @authThrottle()
+  @StrictThrottle()
   @HttpCode(HttpStatus.OK)
   @Post('refresh')
   async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {

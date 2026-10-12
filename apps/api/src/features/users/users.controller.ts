@@ -16,6 +16,7 @@ import {
   UserQueryDto,
 } from './dto/user.dto';
 import { UsersService } from './users.service';
+import { StrictThrottle } from '../../common/rate-limit/strict-throttle.decorator';
 import { ViewerAllowed } from '../../common/decorators/viewer-allowed.decorator';
 
 @ApiTags('Users')
@@ -37,6 +38,7 @@ export class UsersController {
   }
 
   @Post('me/password')
+  @StrictThrottle()
   @ViewerAllowed()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ForAccounts(AccountScope.ANY)

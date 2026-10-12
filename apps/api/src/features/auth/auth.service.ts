@@ -54,7 +54,7 @@ export class AuthService {
   async login(dto: LoginDto, meta: ClientMeta): Promise<LoginResult> {
     const email = dto.email.toLowerCase();
     // Unknown emails count too, so the response never tells which accounts exist.
-    this.attempts.recordAttempt(email);
+    await this.attempts.recordAttempt(email);
     const user = await this.prisma.user.findUnique({
       where: { email },
       include: { organization: { select: { isActive: true } } },
@@ -63,7 +63,7 @@ export class AuthService {
     if (!user || !valid) {
       throw new UnauthorizedException('Invalid email or password');
     }
-    this.attempts.reset(email);
+    await this.attempts.reset(email);
     this.assertCanSignIn(user);
 
     if (user.twoFactorEnabledAt || (await this.twoFactor.isRequired())) {
@@ -78,11 +78,11 @@ export class AuthService {
   async verifyTwoFactor(dto: TwoFactorCodeDto, meta: ClientMeta): Promise<TokenPair> {
     const { user, remember } = await this.fromChallenge(dto.challenge);
     if (!user.twoFactorEnabledAt) throw new BadRequestException('Set up your authenticator app first');
-    this.attempts.recordAttempt(user.email);
+    await this.attempts.recordAttempt(user.email);
     if (!(await this.twoFactor.verify(user, { code: dto.code, recoveryCode: dto.recoveryCode }))) {
       throw new UnauthorizedException(dto.recoveryCode ? 'That recovery code is not valid or was already used' : 'That code is not right. Try the newest code from your app.');
     }
-    this.attempts.reset(user.email);
+    await this.attempts.reset(user.email);
     return this.startSession(user, meta, remember);
   }
 
@@ -97,9 +97,9 @@ export class AuthService {
   async activateTwoFactor(dto: TwoFactorCodeDto, meta: ClientMeta): Promise<{ tokens: TokenPair; recoveryCodes: string[] }> {
     const { user, remember } = await this.fromChallenge(dto.challenge);
     if (user.twoFactorEnabledAt) throw new BadRequestException('Two-step sign-in is already set up');
-    this.attempts.recordAttempt(user.email);
+    await this.attempts.recordAttempt(user.email);
     const recoveryCodes = await this.twoFactor.activate(user, dto.code ?? '');
-    this.attempts.reset(user.email);
+    await this.attempts.reset(user.email);
     return { tokens: await this.startSession(user, meta, remember), recoveryCodes };
   }
 
@@ -124,7 +124,10 @@ export class AuthService {
   async activateOwnTwoFactor(userId: string, code: string) {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     if (user.twoFactorEnabledAt) throw new BadRequestException('Two-step sign-in is already on');
-    return { recoveryCodes: await this.twoFactor.activate(user, code) };
+    await this.attempts.recordAttempt(user.email);
+    const recoveryCodes = await this.twoFactor.activate(user, code);
+    await this.attempts.reset(user.email);
+    return { recoveryCodes };
   }
 
   /** Profile: turns two-step sign-in off, allowed only while root has not made it required. */
@@ -132,12 +135,17 @@ export class AuthService {
     if (await this.twoFactor.isRequired()) throw new ForbiddenException('Two-step sign-in is required for everyone, so it cannot be turned off');
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     if (!user.twoFactorEnabledAt) throw new BadRequestException('Two-step sign-in is already off');
+    await this.attempts.recordAttempt(user.email);
     await this.twoFactor.disable(user, code);
+    await this.attempts.reset(user.email);
   }
 
   async regenerateRecoveryCodes(userId: string, code: string) {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
-    return { recoveryCodes: await this.twoFactor.regenerateRecoveryCodes(user, code) };
+    await this.attempts.recordAttempt(user.email);
+    const recoveryCodes = await this.twoFactor.regenerateRecoveryCodes(user, code);
+    await this.attempts.reset(user.email);
+    return { recoveryCodes };
   }
 
   private get challengeSecret(): string {

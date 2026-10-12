@@ -502,3 +502,17 @@ model PlatformSetting {
   value     String
   updatedAt DateTime @updatedAt
 }
+
+/// Rate-limit counters shared by every server instance (serverless functions keep no memory between requests).
+model RateLimit {
+  key          String    @id
+  hits         Int
+  /// End of the counting window that started with the first hit.
+  expiresAt    DateTime
+  /// Set once the limit is reached: hits are refused until then.
+  blockedUntil DateTime?
+  /// Whether the latest hit was refused.
+  rejected     Boolean   @default(false)
+
+  @@index([expiresAt])
+}

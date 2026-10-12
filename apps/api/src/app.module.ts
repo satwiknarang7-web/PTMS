@@ -2,10 +2,12 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { CommonModule } from './common/common.module';
 import { EventsModule } from './common/events/event-publisher.service';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
+import { ClientThrottlerGuard } from './common/rate-limit/client-throttler.guard';
+import { DatabaseThrottlerStorage } from './common/rate-limit/database-throttler.storage';
 import { AccountScopeGuard } from './common/guards/account-scope.guard';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
@@ -36,10 +38,11 @@ import { PrismaModule } from './prisma/prisma.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true, cache: true, load: [configuration] }),
     ThrottlerModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService<AppConfig, true>) => {
+      inject: [ConfigService, DatabaseThrottlerStorage],
+      useFactory: (config: ConfigService<AppConfig, true>, storage: DatabaseThrottlerStorage) => {
         const throttle = config.get('throttle', { infer: true });
-        return [{ ttl: throttle.ttlMs, limit: throttle.limit }];
+        // Counters live in the database so every serverless instance enforces the same limits.
+        return { throttlers: [{ ttl: throttle.ttlMs, limit: throttle.limit }], storage };
       },
     }),
     EventEmitterModule.forRoot(),
@@ -70,7 +73,7 @@ import { PrismaModule } from './prisma/prisma.module';
     PlatformModule,
   ],
   providers: [
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: ClientThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: AccountScopeGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
