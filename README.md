@@ -9,7 +9,6 @@ timesheets with approvals, dashboards and portfolio reporting.
 | Web      | Next.js 15 (App Router), React 19, TanStack Query, Tailwind CSS 4, Recharts, dnd-kit |
 | API      | NestJS 11, Prisma 6, Passport JWT, class-validator, Swagger, Throttler, Event Emitter |
 | Database | PostgreSQL (Supabase in production)                                   |
-| Email    | SMTP via Nodemailer: invitations and password resets                  |
 
 ---
 
@@ -48,16 +47,19 @@ The seed creates two kinds of account (values from `apps/api/.env`):
 Roles from earlier versions are upgraded automatically by the seed (Super Admin/Admin → Project coordinator,
 Employee → Member).
 
-### Invitations and passwords
+### Passwords and two-step sign-in
 
-- When a root admin, coordinator or member account is created **without** an initial password, the person
-  receives an invitation email with a link to choose their own (valid `INVITE_EXPIRES_HOURS`, default 72).
-  Invitations can be re-sent from **Settings → Users**, the organization drawer, or **Platform → Root admins**.
-- Everyone can change their password under **Profile**.
-- **Forgot password?** on the sign-in screen emails a single-use reset link (valid
-  `PASSWORD_RESET_EXPIRES_MINUTES`, default 60). Setting a new password signs the account out everywhere.
-- Email goes out over SMTP (`SMTP_*` and `MAIL_FROM` in `apps/api/.env`). Without `SMTP_HOST`, development
-  servers write emails (with their links) to the API log; production servers refuse to send invitations.
+- Whoever creates an account (root admin or coordinator) sets its first password and shares it with the
+  person; everyone can change their password under **Profile**. The app sends no email.
+- **Two-step sign-in is required for everyone** (`TWO_FACTOR_REQUIRED=true`): after the password, people
+  enter a 6-digit code from an authenticator app (Google Authenticator, Microsoft Authenticator, Authy…).
+  At their first sign-in they scan a QR code and receive 8 one-time **recovery codes** for a lost phone.
+  New recovery codes can be made under **Profile**.
+- **Forgot password or lost phone?** A coordinator (Settings → Users) or root admin (organization panel,
+  Platform → Root admins) can **reset the password** and/or **reset two-step sign-in**; the person sets up
+  their authenticator again at the next sign-in. Resets sign the account out everywhere.
+- Authenticator secrets are encrypted with a key derived from `JWT_ACCESS_SECRET`: changing that secret
+  means everyone sets up their authenticator again.
 
 API documentation (Swagger) is served at `http://localhost:4000/api/docs` when `SWAGGER_ENABLED=true`.
 
@@ -94,7 +96,7 @@ npm start
 ```
 
 Set `NODE_ENV=production`, `COOKIE_SECURE=true` (HTTPS), real `CORS_ORIGINS`, strong JWT secrets
-(required, at least 32 characters), `DATABASE_URL` / `DIRECT_URL`, `APP_URL` and the `SMTP_*` settings.
+(required, at least 32 characters) and `DATABASE_URL` / `DIRECT_URL`.
 
 ### Deploying on Vercel with Supabase
 
@@ -104,8 +106,7 @@ Set `NODE_ENV=production`, `COOKIE_SECURE=true` (HTTPS), real `CORS_ORIGINS`, st
 2. Create the tables and the first root admin once, from your machine, with those two values in `apps/api/.env`:
    `npm run db:setup -w @segueit/api`.
 3. In the Vercel project settings add `DATABASE_URL`, `DIRECT_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`
-   (e.g. `openssl rand -hex 48`), `APP_URL` (your site address), `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`,
-   `SMTP_USER`, `SMTP_PASS` and `MAIL_FROM`, then redeploy.
+   (e.g. `openssl rand -hex 48`), then redeploy.
 
 ---
 

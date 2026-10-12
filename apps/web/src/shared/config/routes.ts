@@ -2,9 +2,8 @@
 export const routes = {
   root: '/',
   login: '/login',
+  /** Explains how to get back in (no email: an admin resets the password). */
   forgotPassword: '/forgot-password',
-  /** Opened from invitation and password reset emails (?token=…). */
-  resetPassword: '/reset-password',
   home: '/home',
   myWork: '/my-work',
   projects: '/projects',
@@ -41,4 +40,4 @@ export const routes = {
 } as const;
 
 /** Routes reachable without a session. */
-export const PUBLIC_ROUTES = [routes.login, routes.forgotPassword, routes.resetPassword];
+export const PUBLIC_ROUTES = [routes.login, routes.forgotPassword];

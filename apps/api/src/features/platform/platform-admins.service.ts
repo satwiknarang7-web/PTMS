@@ -2,8 +2,6 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { PlatformRole } from '../../common/constants/roles.constants';
 import { PrismaService } from '../../prisma/prisma.service';
 import { InitialCoordinatorDto } from '../organizations/dto/platform-organization.dto';
-import { Inviter } from '../organizations/platform-organizations.service';
-import { AccountLinksService } from '../users/account-links.service';
 import { PasswordService } from '../users/password.service';
 
 const ADMIN_SELECT = {
@@ -14,6 +12,7 @@ const ADMIN_SELECT = {
   jobTitle: true,
   isActive: true,
   lastLoginAt: true,
+  twoFactorEnabledAt: true,
   createdAt: true,
 } as const;
 
@@ -23,7 +22,6 @@ export class PlatformAdminsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly passwords: PasswordService,
-    private readonly links: AccountLinksService,
   ) {}
 
   findAll() {
@@ -34,13 +32,12 @@ export class PlatformAdminsService {
     });
   }
 
-  /** Without a password the new root admin is invited by email to choose one. */
-  async create(dto: InitialCoordinatorDto, inviter: Inviter) {
+  async create(dto: InitialCoordinatorDto) {
     const email = dto.email.toLowerCase();
     if (await this.prisma.user.findUnique({ where: { email } })) {
       throw new ConflictException('A user with this email already exists');
     }
-    const admin = await this.prisma.user.create({
+    return this.prisma.user.create({
       data: {
         organizationId: null,
         email,
@@ -48,25 +45,30 @@ export class PlatformAdminsService {
         lastName: dto.lastName,
         jobTitle: 'Platform Administrator',
         role: PlatformRole.ROOT,
-        passwordHash: dto.password ? await this.passwords.hash(dto.password) : await this.links.unusablePasswordHash(),
+        passwordHash: await this.passwords.hash(dto.password),
       },
       select: ADMIN_SELECT,
     });
-    if (!dto.password) {
-      try {
-        await this.links.sendInvite(admin, inviter.origin, inviter.name, 'platform administration');
-      } catch (error) {
-        await this.prisma.user.delete({ where: { id: admin.id } });
-        throw error;
-      }
-    }
-    return admin;
   }
 
-  async resendInvite(id: string, inviter: Inviter): Promise<void> {
-    const admin = await this.find(id);
-    if (!admin.isActive) throw new BadRequestException('Reactivate this root admin before inviting them');
-    await this.links.sendInvite(admin, inviter.origin, inviter.name, 'platform administration');
+  /** Clears another root admin's authenticator app; they set it up again at their next sign-in. */
+  async resetTwoFactor(actorId: string, id: string): Promise<void> {
+    if (id === actorId) throw new BadRequestException('Ask another root admin to reset your authenticator');
+    await this.find(id);
+    await this.prisma.$transaction([
+      this.prisma.user.update({ where: { id }, data: { twoFactorSecret: null, twoFactorEnabledAt: null, twoFactorRecoveryCodes: null, twoFactorLastStep: null } }),
+      this.prisma.refreshToken.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } }),
+    ]);
+  }
+
+  /** Sets a new password for another root admin and signs them out everywhere. */
+  async resetPassword(actorId: string, id: string, password: string): Promise<void> {
+    if (id === actorId) throw new BadRequestException('Change your own password from your profile');
+    await this.find(id);
+    await this.prisma.$transaction([
+      this.prisma.user.update({ where: { id }, data: { passwordHash: await this.passwords.hash(password) } }),
+      this.prisma.refreshToken.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } }),
+    ]);
   }
 
   /** Deactivating signs the admin out everywhere. The platform always keeps one active root admin. */

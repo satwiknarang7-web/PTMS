@@ -17,6 +17,10 @@ import { Spinner } from '@/shared/ui/feedback';
 import { Field, Input } from '@/shared/ui/form';
 import { PageHeader } from '@/shared/ui/layout';
 import { useChangePassword, useUpdateProfile } from '../api';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { authApi } from '@/features/auth/api';
+import { RecoveryCodes } from '@/features/auth/components/two-factor-steps';
+import { FormAlert } from '@/shared/ui/form';
 
 export function ProfileView() {
   const { data: user } = useSession();
@@ -24,7 +28,13 @@ export function ProfileView() {
   const [values, setValues] = useState({ firstName: '', lastName: '', jobTitle: '', avatarUrl: '' });
 
   useEffect(() => {
-    if (user) setValues({ firstName: user.firstName, lastName: user.lastName, jobTitle: user.jobTitle ?? '', avatarUrl: user.avatarUrl ?? '' });
+    if (user)
+      setValues({
+        firstName: user.firstName,
+        lastName: user.lastName,
+        jobTitle: user.jobTitle ?? '',
+        avatarUrl: user.avatarUrl ?? '',
+      });
   }, [user]);
 
   if (!user) return <Spinner />;
@@ -47,37 +57,48 @@ export function ProfileView() {
           </CardBody>
         </Card>
         <div className="space-y-4">
-          <CollapsibleCard storageKey="profile.details" title="Personal details" description="Name, job title and avatar shown to your teammates." bodyClassName="grid gap-4 p-[var(--card-p)] sm:grid-cols-2">
-              <Field label="First name">
-                <Input value={values.firstName} onChange={(e) => setValues({ ...values, firstName: e.target.value })} />
-              </Field>
-              <Field label="Last name">
-                <Input value={values.lastName} onChange={(e) => setValues({ ...values, lastName: e.target.value })} />
-              </Field>
-              <Field label="Job title">
-                <Input value={values.jobTitle} onChange={(e) => setValues({ ...values, jobTitle: e.target.value })} />
-              </Field>
-              <Field label="Avatar URL">
-                <Input type="url" placeholder="https://…" value={values.avatarUrl} onChange={(e) => setValues({ ...values, avatarUrl: e.target.value })} />
-              </Field>
-              <div className="sm:col-span-2">
-                <Button
-                  loading={update.isPending}
-                  disabled={!values.firstName.trim() || !values.lastName.trim()}
-                  onClick={() =>
-                    update.mutate({
-                      firstName: values.firstName.trim(),
-                      lastName: values.lastName.trim(),
-                      jobTitle: values.jobTitle.trim() || null,
-                      avatarUrl: values.avatarUrl.trim() || null,
-                    })
-                  }
-                >
-                  Save profile
-                </Button>
-              </div>
+          <CollapsibleCard
+            storageKey="profile.details"
+            title="Personal details"
+            description="Name, job title and avatar shown to your teammates."
+            bodyClassName="grid gap-4 p-[var(--card-p)] sm:grid-cols-2"
+          >
+            <Field label="First name">
+              <Input value={values.firstName} onChange={(e) => setValues({ ...values, firstName: e.target.value })} />
+            </Field>
+            <Field label="Last name">
+              <Input value={values.lastName} onChange={(e) => setValues({ ...values, lastName: e.target.value })} />
+            </Field>
+            <Field label="Job title">
+              <Input value={values.jobTitle} onChange={(e) => setValues({ ...values, jobTitle: e.target.value })} />
+            </Field>
+            <Field label="Avatar URL">
+              <Input
+                type="url"
+                placeholder="https://…"
+                value={values.avatarUrl}
+                onChange={(e) => setValues({ ...values, avatarUrl: e.target.value })}
+              />
+            </Field>
+            <div className="sm:col-span-2">
+              <Button
+                loading={update.isPending}
+                disabled={!values.firstName.trim() || !values.lastName.trim()}
+                onClick={() =>
+                  update.mutate({
+                    firstName: values.firstName.trim(),
+                    lastName: values.lastName.trim(),
+                    jobTitle: values.jobTitle.trim() || null,
+                    avatarUrl: values.avatarUrl.trim() || null,
+                  })
+                }
+              >
+                Save profile
+              </Button>
+            </div>
           </CollapsibleCard>
           <ChangePasswordCard />
+          <TwoFactorCard />
         </div>
       </div>
     </>
@@ -117,21 +138,102 @@ function ChangePasswordCard() {
       description="You will be signed out of all devices after changing it."
       bodyClassName="grid gap-4 p-[var(--card-p)] sm:grid-cols-3"
     >
-        {error && <p className="text-sm text-danger sm:col-span-3">{error}</p>}
-        <Field label="Current password">
-          <Input type="password" autoComplete="current-password" value={values.currentPassword} onChange={(e) => setValues({ ...values, currentPassword: e.target.value })} />
-        </Field>
-        <Field label="New password">
-          <Input type="password" autoComplete="new-password" value={values.newPassword} onChange={(e) => setValues({ ...values, newPassword: e.target.value })} />
-        </Field>
-        <Field label="Confirm new password">
-          <Input type="password" autoComplete="new-password" value={values.confirm} onChange={(e) => setValues({ ...values, confirm: e.target.value })} />
-        </Field>
-        <div className="sm:col-span-3">
-          <Button onClick={submit} loading={change.isPending} disabled={!values.currentPassword || !values.newPassword}>
-            Update password
-          </Button>
-        </div>
+      {error && <p className="text-sm text-danger sm:col-span-3">{error}</p>}
+      <Field label="Current password">
+        <Input
+          type="password"
+          autoComplete="current-password"
+          value={values.currentPassword}
+          onChange={(e) => setValues({ ...values, currentPassword: e.target.value })}
+        />
+      </Field>
+      <Field label="New password">
+        <Input
+          type="password"
+          autoComplete="new-password"
+          value={values.newPassword}
+          onChange={(e) => setValues({ ...values, newPassword: e.target.value })}
+        />
+      </Field>
+      <Field label="Confirm new password">
+        <Input
+          type="password"
+          autoComplete="new-password"
+          value={values.confirm}
+          onChange={(e) => setValues({ ...values, confirm: e.target.value })}
+        />
+      </Field>
+      <div className="sm:col-span-3">
+        <Button onClick={submit} loading={change.isPending} disabled={!values.currentPassword || !values.newPassword}>
+          Update password
+        </Button>
+      </div>
+    </CollapsibleCard>
+  );
+}
+
+/** Two-step sign-in status and fresh recovery codes (old ones stop working). */
+function TwoFactorCard() {
+  const status = useQuery({ queryKey: ['auth', 'two-factor'], queryFn: authApi.twoFactorStatus });
+  const [code, setCode] = useState('');
+  const [codes, setCodes] = useState<string[] | null>(null);
+  const regenerate = useMutation({
+    mutationFn: authApi.regenerateRecoveryCodes,
+    meta: { silentError: true },
+    onSuccess: (result) => {
+      setCodes(result.recoveryCodes);
+      setCode('');
+      void status.refetch();
+    },
+  });
+  const data = status.data;
+
+  return (
+    <CollapsibleCard
+      storageKey="profile.two-factor"
+      defaultOpen={false}
+      title="Two-step sign-in"
+      description={
+        data?.enabled
+          ? `On since ${formatDateTime(data.enabledAt)} · ${data.recoveryCodesLeft} recovery code${data.recoveryCodesLeft === 1 ? '' : 's'} left`
+          : 'Not set up yet: you will scan a QR code at your next sign-in.'
+      }
+      bodyClassName="space-y-4 p-[var(--card-p)]"
+    >
+      {codes ? (
+        <RecoveryCodes codes={codes} onDone={() => setCodes(null)} doneLabel="Done" />
+      ) : data?.enabled ? (
+        <>
+          <p className="text-sm text-muted">
+            Each sign-in asks for a code from your authenticator app. Recovery codes let you sign in once each if you
+            lose your phone. Make new ones if you have used some or think they were seen; the old ones stop working.
+            Lost your phone? Ask an admin to reset two-step sign-in.
+          </p>
+          {regenerate.isError && <FormAlert>{errorMessage(regenerate.error)}</FormAlert>}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <Field label="Code from your authenticator app" className="sm:w-56">
+              <Input
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                placeholder="000000"
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+              />
+            </Field>
+            <Button
+              variant="secondary"
+              disabled={code.length !== 6}
+              loading={regenerate.isPending}
+              onClick={() => regenerate.mutate(code)}
+            >
+              Make new recovery codes
+            </Button>
+          </div>
+        </>
+      ) : (
+        <p className="text-sm text-muted">Sign out and sign in again to set up your authenticator app.</p>
+      )}
     </CollapsibleCard>
   );
 }

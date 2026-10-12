@@ -12,18 +12,37 @@ export const authKeys = {
 export const authApi = {
   config: () => api.get<AuthConfig>('/auth/config'),
   me: () => api.get<SessionUser>('/auth/me'),
-  login: (input: LoginInput) => api.post<{ success: boolean }>('/auth/login', input, { skipAuthRefresh: true }),
+  login: (input: LoginInput) => api.post<LoginResponse>('/auth/login', input, { skipAuthRefresh: true }),
   logout: () => api.post<void>('/auth/logout', undefined, { skipAuthRefresh: true }),
-  forgotPassword: (email: string) => api.post<void>('/auth/forgot-password', { email }, { skipAuthRefresh: true }),
-  verifyToken: (token: string) => api.post<LinkInfo>('/auth/verify-token', { token }, { skipAuthRefresh: true }),
-  resetPassword: (input: { token: string; password: string }) => api.post<void>('/auth/reset-password', input, { skipAuthRefresh: true }),
+  /** Second sign-in step: a code from the authenticator app, or a one-time recovery code. */
+  verifyTwoFactor: (input: { challenge: string; code?: string; recoveryCode?: string }) =>
+    api.post<{ status: 'ok' }>('/auth/two-factor/verify', input, { skipAuthRefresh: true }),
+  /** First sign-in: the QR code to scan. */
+  setupTwoFactor: (challenge: string) => api.post<TwoFactorSetup>('/auth/two-factor/setup', { challenge }, { skipAuthRefresh: true }),
+  activateTwoFactor: (input: { challenge: string; code: string }) =>
+    api.post<{ status: 'ok'; recoveryCodes: string[] }>('/auth/two-factor/activate', input, { skipAuthRefresh: true }),
+  twoFactorStatus: () => api.get<TwoFactorStatus>('/auth/two-factor'),
+  regenerateRecoveryCodes: (code: string) => api.post<{ recoveryCodes: string[] }>('/auth/two-factor/recovery-codes', { code }),
 };
 
-/** What an invitation or reset link is for, shown before the user chooses a password. */
-export interface LinkInfo {
-  purpose: 'INVITE' | 'PASSWORD_RESET';
-  email: string;
-  firstName: string;
+/** Password step result: a session, or the authenticator step that must come first. */
+export type LoginResponse =
+  | { status: 'ok' }
+  | { status: 'two_factor_required' | 'two_factor_setup_required'; challenge: string };
+
+export interface TwoFactorSetup {
+  /** Key for typing into the app by hand, grouped in fours. */
+  secret: string;
+  otpauthUrl: string;
+  /** QR code image (data URL). */
+  qrCode: string;
+}
+
+export interface TwoFactorStatus {
+  enabled: boolean;
+  enabledAt: string | null;
+  required: boolean;
+  recoveryCodesLeft: number;
 }
 
 export function useSession() {

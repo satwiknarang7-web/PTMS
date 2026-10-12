@@ -237,7 +237,7 @@ function WorkspaceMenu({ user, workspace, tenant }: { user: SessionUser; workspa
   return (
     <Dropdown
       align="left"
-      className="bottom-full mb-2 mt-0 w-60 origin-bottom-left"
+      className="w-60"
       trigger={({ open, toggle }) => (
         <button
           type="button"

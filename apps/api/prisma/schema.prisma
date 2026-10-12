@@ -30,42 +30,48 @@ model Organization {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  users         User[]
-  projects      Project[]
-  lookups       Lookup[]
+  users      User[]
+  projects   Project[]
+  lookups    Lookup[]
   activities Activity[]
   meetings   Meeting[]
 }
 
 /// Tenant users belong to an organization; the platform ROOT account has no organization.
 model User {
-  id             String    @id @default(cuid())
-  organizationId String?
-  email          String    @unique
-  passwordHash   String
-  firstName      String
-  lastName       String
-  jobTitle       String?
-  avatarUrl      String?
-  role           String
-  isActive       Boolean   @default(true)
-  hourlyRate     Float?
-  lastLoginAt    DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id                     String    @id @default(cuid())
+  organizationId         String?
+  email                  String    @unique
+  passwordHash           String
+  firstName              String
+  lastName               String
+  jobTitle               String?
+  avatarUrl              String?
+  role                   String
+  isActive               Boolean   @default(true)
+  hourlyRate             Float?
+  lastLoginAt            DateTime?
+  /// Authenticator app (TOTP) sign-in: encrypted secret, set while setting up; enabled once confirmed.
+  twoFactorSecret        String?
+  twoFactorEnabledAt     DateTime?
+  /// JSON array of SHA-256 hashes of the unused one-time recovery codes.
+  twoFactorRecoveryCodes String?
+  /// Last accepted 30-second time step, so a code cannot be used twice.
+  twoFactorLastStep      Int?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
-  organization        Organization?    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization        Organization?     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   refreshTokens       RefreshToken[]
-  authTokens          AuthToken[]
-  ownedProjects       Project[]        @relation("ProjectOwner")
+  ownedProjects       Project[]         @relation("ProjectOwner")
   memberships         ProjectMember[]
   taskAssignments     TaskAssignee[]
-  createdTasks        Task[]           @relation("TaskCreator")
-  ownedMilestones     Milestone[]      @relation("MilestoneOwner")
-  reportedIssues      Issue[]          @relation("IssueReporter")
-  assignedIssues      Issue[]          @relation("IssueAssignee")
-  timeEntries         TimeEntry[]      @relation("TimeEntryUser")
-  approvedTimeEntries TimeEntry[]      @relation("TimeEntryApprover")
+  createdTasks        Task[]            @relation("TaskCreator")
+  ownedMilestones     Milestone[]       @relation("MilestoneOwner")
+  reportedIssues      Issue[]           @relation("IssueReporter")
+  assignedIssues      Issue[]           @relation("IssueAssignee")
+  timeEntries         TimeEntry[]       @relation("TimeEntryUser")
+  approvedTimeEntries TimeEntry[]       @relation("TimeEntryApprover")
   comments            Comment[]
   activities          Activity[]
   notifications       Notification[]
@@ -76,28 +82,12 @@ model User {
   @@index([organizationId])
 }
 
-/// Single-use emailed links: account invitations and password resets. Only the hash is stored.
-model AuthToken {
-  id        String    @id @default(cuid())
-  userId    String
-  /// INVITE | PASSWORD_RESET
-  purpose   String
-  tokenHash String    @unique
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime  @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-}
-
 model RefreshToken {
-  id        String    @id @default(cuid())
-  userId    String
-  tokenHash String
-  expiresAt DateTime
-  revokedAt DateTime?
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String
+  expiresAt  DateTime
+  revokedAt  DateTime?
   userAgent  String?
   ipAddress  String?
   /// "Keep me signed in": longer lifetime and a persistent cookie.
@@ -108,7 +98,6 @@ model RefreshToken {
 
   @@index([userId])
 }
-
 
 /// Configurable, per-organization values: task/issue/project statuses,
 /// priorities and issue severities.
@@ -154,9 +143,9 @@ model Project {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  status       Lookup          @relation("ProjectStatus", fields: [statusId], references: [id], onDelete: Restrict)
-  owner        User            @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  status       Lookup            @relation("ProjectStatus", fields: [statusId], references: [id], onDelete: Restrict)
+  owner        User              @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   members      ProjectMember[]
   taskLists    TaskList[]
   tasks        Task[]
@@ -240,40 +229,40 @@ model TaskList {
 }
 
 model Task {
-  id             String    @id @default(cuid())
-  projectId      String
-  taskListId     String?
-  milestoneId    String?
-  parentId       String?
-  number         Int
-  title          String
-  description    String?
-  statusId       String
-  priorityId     String
-  startDate      DateTime?
-  dueDate        DateTime?
+  id                 String    @id @default(cuid())
+  projectId          String
+  taskListId         String?
+  milestoneId        String?
+  parentId           String?
+  number             Int
+  title              String
+  description        String?
+  statusId           String
+  priorityId         String
+  startDate          DateTime?
+  dueDate            DateTime?
   /// Due date the "due soon" / "overdue" reminders were last sent for (a new due date re-arms them).
   dueSoonNotifiedFor DateTime?
   overdueNotifiedFor DateTime?
-  estimatedHours Float?
-  progress       Int       @default(0)
-  position       Float     @default(0)
-  createdById    String
-  completedAt    DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  estimatedHours     Float?
+  progress           Int       @default(0)
+  position           Float     @default(0)
+  createdById        String
+  completedAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  project      Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  taskList     TaskList?        @relation(fields: [taskListId], references: [id], onDelete: SetNull)
-  milestone    Milestone?       @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
-  parent       Task?            @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
-  subtasks     Task[]           @relation("Subtasks")
-  status       Lookup           @relation("TaskStatus", fields: [statusId], references: [id], onDelete: Restrict)
-  priority     Lookup           @relation("TaskPriority", fields: [priorityId], references: [id], onDelete: Restrict)
-  createdBy    User             @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  project      Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  taskList     TaskList?          @relation(fields: [taskListId], references: [id], onDelete: SetNull)
+  milestone    Milestone?         @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  parent       Task?              @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks     Task[]             @relation("Subtasks")
+  status       Lookup             @relation("TaskStatus", fields: [statusId], references: [id], onDelete: Restrict)
+  priority     Lookup             @relation("TaskPriority", fields: [priorityId], references: [id], onDelete: Restrict)
+  createdBy    User               @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Restrict)
   assignees    TaskAssignee[]
-  predecessors TaskDependency[] @relation("DependencySuccessor")
-  successors   TaskDependency[] @relation("DependencyPredecessor")
+  predecessors TaskDependency[]   @relation("DependencySuccessor")
+  successors   TaskDependency[]   @relation("DependencyPredecessor")
   comments     Comment[]
   timeEntries  TimeEntry[]
   issues       Issue[]
@@ -310,25 +299,25 @@ model TaskDependency {
 }
 
 model Issue {
-  id          String    @id @default(cuid())
-  projectId   String
-  number      Int
-  title       String
-  description String?
-  statusId    String
-  priorityId  String
-  severityId  String
-  reporterId  String
-  assigneeId  String?
-  milestoneId String?
-  taskId      String?
-  dueDate     DateTime?
+  id                 String    @id @default(cuid())
+  projectId          String
+  number             Int
+  title              String
+  description        String?
+  statusId           String
+  priorityId         String
+  severityId         String
+  reporterId         String
+  assigneeId         String?
+  milestoneId        String?
+  taskId             String?
+  dueDate            DateTime?
   /// Due date the "due soon" / "overdue" reminders were last sent for (a new due date re-arms them).
   dueSoonNotifiedFor DateTime?
   overdueNotifiedFor DateTime?
-  resolvedAt  DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  resolvedAt         DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
   status      Lookup      @relation("IssueStatus", fields: [statusId], references: [id], onDelete: Restrict)

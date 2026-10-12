@@ -17,7 +17,6 @@ import { DashboardModule } from './features/dashboard/dashboard.module';
 import { HealthModule } from './features/health/health.module';
 import { IssuesModule } from './features/issues/issues.module';
 import { LookupsModule } from './features/lookups/lookups.module';
-import { MailModule } from './features/mail/mail.module';
 import { MeetingsModule } from './features/meetings/meetings.module';
 import { MilestonesModule } from './features/milestones/milestones.module';
 import { NotificationsModule } from './features/notifications/notifications.module';
@@ -49,7 +48,6 @@ import { PrismaModule } from './prisma/prisma.module';
     EventsModule,
     // Features
     HealthModule,
-    MailModule,
     AuthModule,
     UsersModule,
     OrganizationsModule,

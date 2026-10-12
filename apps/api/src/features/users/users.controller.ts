@@ -1,6 +1,5 @@
-import { Body, Controller, Delete, ForbiddenException, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import type { Request } from 'express';
 import { hasPermission, Permission } from '../../common/constants/permissions.constants';
 import { isRoot } from '../../common/constants/roles.constants';
 import { AccountScope, ForAccounts } from '../../common/decorators/account-scope.decorator';
@@ -16,7 +15,6 @@ import {
   UpdateUserDto,
   UserQueryDto,
 } from './dto/user.dto';
-import { requestOrigin } from '../../common/utils/request.util';
 import { UsersService } from './users.service';
 
 @ApiTags('Users')
@@ -60,16 +58,10 @@ export class UsersController {
 
   @Post()
   @RequirePermissions(Permission.USERS_MANAGE)
-  create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateUserDto, @Req() req: Request) {
-    return this.users.create(user, dto, requestOrigin(req));
+  create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateUserDto) {
+    return this.users.create(user, dto);
   }
 
-  @Post(':id/invite')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @RequirePermissions(Permission.USERS_MANAGE)
-  resendInvite(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Req() req: Request) {
-    return this.users.resendInvite(user, id, requestOrigin(req));
-  }
 
   @Patch(':id')
   @RequirePermissions(Permission.USERS_MANAGE)
@@ -84,6 +76,13 @@ export class UsersController {
   remove(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Query() query: RemoveUserQueryDto) {
     if (!isRoot(user.role)) throw new ForbiddenException('Only a root admin can remove people. Deactivate the account instead.');
     return this.users.remove(user.organizationId, user.id, id, query.transferTo);
+  }
+
+  @Post(':id/reset-two-factor')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @RequirePermissions(Permission.USERS_MANAGE)
+  resetTwoFactor(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.users.resetTwoFactor(user, id);
   }
 
   @Post(':id/reset-password')

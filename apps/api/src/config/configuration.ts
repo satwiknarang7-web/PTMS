@@ -26,7 +26,6 @@ const buildConfiguration = () => {
         .map((origin) => origin.trim())
         .filter(Boolean),
       swaggerEnabled: env.SWAGGER_ENABLED,
-      url: (env.APP_URL ?? '').replace(/\/+$/, ''),
     },
     auth: {
       accessSecret: env.JWT_ACCESS_SECRET,
@@ -53,15 +52,8 @@ const buildConfiguration = () => {
       loginMaxFailures: env.LOGIN_MAX_FAILURES,
       loginLockoutMs: env.LOGIN_LOCKOUT_MINUTES * 60_000,
     },
-    mail: {
-      host: env.SMTP_HOST || undefined,
-      port: env.SMTP_PORT,
-      secure: env.SMTP_SECURE ?? env.SMTP_PORT === 465,
-      user: env.SMTP_USER || undefined,
-      pass: env.SMTP_PASS || undefined,
-      from: env.MAIL_FROM || env.SMTP_USER || `${env.APP_NAME} <no-reply@localhost>`,
-      inviteTtlMs: env.INVITE_EXPIRES_HOURS * 3_600_000,
-      resetTtlMs: env.PASSWORD_RESET_EXPIRES_MINUTES * 60_000,
+    twoFactor: {
+      required: env.TWO_FACTOR_REQUIRED,
     },
     pagination: {
       defaultPageSize: env.DEFAULT_PAGE_SIZE,

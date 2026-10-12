@@ -15,6 +15,7 @@ export interface PlatformOrganizationPerson extends UserSummary {
   jobTitle: string | null;
   isActive: boolean;
   lastLoginAt: string | null;
+  twoFactorEnabledAt: string | null;
 }
 
 export interface PlatformOrganizationDetail extends PlatformOrganization {
@@ -52,5 +53,6 @@ export interface PlatformAdmin {
   jobTitle: string | null;
   isActive: boolean;
   lastLoginAt: string | null;
+  twoFactorEnabledAt: string | null;
   createdAt: string;
 }

@@ -8,11 +8,12 @@ import { AuthService } from './auth.service';
 import { LoginAttemptsService } from './login-attempts.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { TokenService } from './token.service';
+import { TwoFactorService } from './two-factor.service';
 
 @Module({
   imports: [PassportModule, JwtModule.register({}), UsersModule],
   controllers: [AuthController],
-  providers: [AuthService, TokenService, AuthCookieService, JwtStrategy, LoginAttemptsService],
-  exports: [AuthCookieService],
+  providers: [AuthService, TokenService, AuthCookieService, JwtStrategy, LoginAttemptsService, TwoFactorService],
+  exports: [AuthCookieService, TwoFactorService],
 })
 export class AuthModule {}

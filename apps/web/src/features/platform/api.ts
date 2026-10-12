@@ -66,11 +66,21 @@ export function useAddCoordinator() {
   });
 }
 
-export function useSendCoordinatorInvite() {
+export function useResetOrganizationUserPassword() {
+  return useMutation({
+    mutationFn: ({ organizationId, userId, password }: { organizationId: string; userId: string; password: string }) =>
+      api.post<void>(`/platform/organizations/${organizationId}/users/${userId}/reset-password`, { password }),
+    meta: { successMessage: 'Password reset. They have been signed out everywhere.' },
+  });
+}
+
+export function useResetOrganizationUserTwoFactor() {
+  const invalidate = useInvalidatePlatform();
   return useMutation({
     mutationFn: ({ organizationId, userId }: { organizationId: string; userId: string }) =>
-      api.post<void>(`/platform/organizations/${organizationId}/coordinators/${userId}/invite`),
-    meta: { successMessage: 'Email sent' },
+      api.post<void>(`/platform/organizations/${organizationId}/users/${userId}/reset-two-factor`),
+    meta: { successMessage: 'Two-step sign-in reset. They will set it up again at their next sign-in.' },
+    onSuccess: invalidate,
   });
 }
 
@@ -120,10 +130,19 @@ export function useUpdatePlatformAdmin() {
   });
 }
 
-export function useSendPlatformAdminInvite() {
+export function useResetPlatformAdminPassword() {
   return useMutation({
-    mutationFn: (id: string) => api.post<void>(`/platform/admins/${id}/invite`),
-    meta: { successMessage: 'Email sent' },
+    mutationFn: ({ id, password }: { id: string; password: string }) => api.post<void>(`/platform/admins/${id}/reset-password`, { password }),
+    meta: { successMessage: 'Password reset. They have been signed out everywhere.' },
+  });
+}
+
+export function useResetPlatformAdminTwoFactor() {
+  const invalidate = useInvalidatePlatform();
+  return useMutation({
+    mutationFn: (id: string) => api.post<void>(`/platform/admins/${id}/reset-two-factor`),
+    meta: { successMessage: 'Two-step sign-in reset. They will set it up again at their next sign-in.' },
+    onSuccess: invalidate,
   });
 }
 

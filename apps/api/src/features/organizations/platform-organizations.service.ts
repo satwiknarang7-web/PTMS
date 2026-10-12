@@ -3,7 +3,6 @@ import { Prisma } from '@prisma/client';
 import { normalizeRole, ORG_ROLES, OrgRole } from '../../common/constants/roles.constants';
 import { PaginationService } from '../../common/pagination/pagination.service';
 import { PrismaService } from '../../prisma/prisma.service';
-import { AccountLinksService } from '../users/account-links.service';
 import { PasswordService } from '../users/password.service';
 import { USER_SUMMARY_SELECT } from '../users/users.select';
 import {
@@ -14,12 +13,6 @@ import {
 } from './dto/platform-organization.dto';
 import { OrganizationsService } from './organizations.service';
 
-/** Who is creating an account, for the invitation email. */
-export interface Inviter {
-  name: string;
-  origin: string;
-}
-
 /** Root-only administration of every organization on the platform. */
 @Injectable()
 export class PlatformOrganizationsService {
@@ -28,7 +21,6 @@ export class PlatformOrganizationsService {
     private readonly organizations: OrganizationsService,
     private readonly passwords: PasswordService,
     private readonly pagination: PaginationService,
-    private readonly links: AccountLinksService,
   ) {}
 
   private include() {
@@ -63,7 +55,7 @@ export class PlatformOrganizationsService {
         _count: { select: { users: true, projects: true } },
         users: {
           orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
-          select: { ...USER_SUMMARY_SELECT, role: true, jobTitle: true, isActive: true, lastLoginAt: true },
+          select: { ...USER_SUMMARY_SELECT, role: true, jobTitle: true, isActive: true, lastLoginAt: true, twoFactorEnabledAt: true },
         },
       },
     });
@@ -73,16 +65,16 @@ export class PlatformOrganizationsService {
     return { ...rest, coordinators, people };
   }
 
-  /** Creates an organization together with its first project coordinator (invited by email without a password). */
-  async create(dto: CreatePlatformOrganizationDto, inviter: Inviter) {
+  /** Creates an organization together with its first project coordinator. */
+  async create(dto: CreatePlatformOrganizationDto) {
     const email = dto.coordinator.email.toLowerCase();
     if (await this.prisma.user.findUnique({ where: { email } })) {
       throw new ConflictException('A user with this email already exists');
     }
-    const passwordHash = await this.passwordHashFor(dto.coordinator.password);
-    const { organization, coordinator } = await this.prisma.$transaction(async (tx) => {
+    const passwordHash = await this.passwords.hash(dto.coordinator.password);
+    const organization = await this.prisma.$transaction(async (tx) => {
       const created = await this.organizations.provision(tx, dto.name);
-      const user = await tx.user.create({
+      await tx.user.create({
         data: {
           organizationId: created.id,
           email,
@@ -92,60 +84,49 @@ export class PlatformOrganizationsService {
           role: OrgRole.PROJECT_COORDINATOR,
         },
       });
-      return { organization: created, coordinator: user };
+      return created;
     });
-    if (!dto.coordinator.password) {
-      try {
-        await this.links.sendInvite(coordinator, inviter.origin, inviter.name, organization.name);
-      } catch (error) {
-        await this.remove(organization.id);
-        throw error;
-      }
-    }
     return this.findOne(organization.id);
   }
 
   /** Appoints another project coordinator by creating their account in the organization. */
-  async addCoordinator(id: string, dto: InitialCoordinatorDto, inviter: Inviter) {
+  async addCoordinator(id: string, dto: InitialCoordinatorDto) {
     await this.assertExists(id);
     const email = dto.email.toLowerCase();
     if (await this.prisma.user.findUnique({ where: { email } })) {
       throw new ConflictException('A user with this email already exists');
     }
-    const user = await this.prisma.user.create({
+    await this.prisma.user.create({
       data: {
         organizationId: id,
         email,
-        passwordHash: await this.passwordHashFor(dto.password),
+        passwordHash: await this.passwords.hash(dto.password),
         firstName: dto.firstName,
         lastName: dto.lastName,
         role: OrgRole.PROJECT_COORDINATOR,
       },
-      include: { organization: { select: { name: true } } },
     });
-    if (!dto.password) {
-      try {
-        await this.links.sendInvite(user, inviter.origin, inviter.name, user.organization?.name);
-      } catch (error) {
-        await this.prisma.user.delete({ where: { id: user.id } });
-        throw error;
-      }
-    }
     return this.findOne(id);
   }
 
-  /** Re-sends the invitation (or a set-password link) to anyone in the organization. */
-  async resendCoordinatorInvite(id: string, userId: string, inviter: Inviter): Promise<void> {
-    const user = await this.prisma.user.findFirst({
-      where: { id: userId, organizationId: id, isActive: true },
-      include: { organization: { select: { name: true } } },
-    });
+  /** Sets a new password for someone in the organization and signs them out everywhere. */
+  async resetPassword(id: string, userId: string, password: string): Promise<void> {
+    const user = await this.prisma.user.findFirst({ where: { id: userId, organizationId: id }, select: { id: true } });
     if (!user) throw new NotFoundException('Person not found in this organization');
-    await this.links.sendInvite(user, inviter.origin, inviter.name, user.organization?.name);
+    await this.prisma.$transaction([
+      this.prisma.user.update({ where: { id: userId }, data: { passwordHash: await this.passwords.hash(password) } }),
+      this.prisma.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } }),
+    ]);
   }
 
-  private passwordHashFor(password: string | undefined): Promise<string> {
-    return password ? this.passwords.hash(password) : this.links.unusablePasswordHash();
+  /** Clears someone's authenticator app; they set it up again at their next sign-in. */
+  async resetTwoFactor(id: string, userId: string): Promise<void> {
+    const user = await this.prisma.user.findFirst({ where: { id: userId, organizationId: id }, select: { id: true } });
+    if (!user) throw new NotFoundException('Person not found in this organization');
+    await this.prisma.$transaction([
+      this.prisma.user.update({ where: { id: userId }, data: { twoFactorSecret: null, twoFactorEnabledAt: null, twoFactorRecoveryCodes: null, twoFactorLastStep: null } }),
+      this.prisma.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } }),
+    ]);
   }
 
   /** Moves a person between member and project coordinator. Takes effect on their next request. */

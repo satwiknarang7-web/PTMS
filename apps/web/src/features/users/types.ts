@@ -11,6 +11,8 @@ export interface User {
   isActive: boolean;
   hourlyRate: number | null;
   lastLoginAt: string | null;
+  /** When the person set up their authenticator app; null until then. */
+  twoFactorEnabledAt: string | null;
   createdAt: string;
 }
 
@@ -26,8 +28,7 @@ export interface CreateUserInput {
   email: string;
   firstName: string;
   lastName: string;
-  /** Leave out to email an invitation link. */
-  password?: string;
+  password: string;
   role: OrgRole;
   jobTitle?: string | null;
   hourlyRate?: number | null;

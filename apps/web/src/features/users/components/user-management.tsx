@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowUpDown, Eye, KeyRound, Mail, Pencil, Plus, Search, Trash2, UserCheck, UserX } from 'lucide-react';
+import { ArrowUpDown, Eye, KeyRound, Pencil, Plus, Search, Smartphone, Trash2, UserCheck, UserX } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -25,9 +25,9 @@ import { DropdownItem, DropdownSeparator } from '@/shared/ui/dropdown';
 import { ErrorState, Spinner } from '@/shared/ui/feedback';
 import { Field, Input, Select } from '@/shared/ui/form';
 import { Pagination } from '@/shared/ui/layout';
-import { Modal } from '@/shared/ui/modal';
+import { ConfirmDialog, Modal } from '@/shared/ui/modal';
 import { Table, Td, Th, Tr } from '@/shared/ui/table';
-import { useActiveUsers, useCreateUser, useRemoveUser, useResetPassword, useSendInvite, useUpdateUser, useUsers } from '../api';
+import { useActiveUsers, useCreateUser, useRemoveUser, useResetPassword, useResetTwoFactor, useUpdateUser, useUsers } from '../api';
 import { RemovePersonDialog } from './remove-person-dialog';
 import type { User } from '../types';
 
@@ -48,9 +48,10 @@ export function UserManagement() {
   const [resetting, setResetting] = useState<User | null>(null);
   const debounced = useDebounce(search);
   const update = useUpdateUser();
-  const invite = useSendInvite();
+  const resetTwoFactor = useResetTwoFactor();
   const remove = useRemoveUser();
   const [removing, setRemoving] = useState<User | null>(null);
+  const [resettingTwoFactor, setResettingTwoFactor] = useState<User | null>(null);
   /** Only root admins remove people for good; coordinators deactivate them. */
   const canRemove = session?.role === PLATFORM_ROOT_ROLE;
   const { data: activePeople } = useActiveUsers();
@@ -148,7 +149,16 @@ export function UserManagement() {
                     <Badge tone={user.role === OrgRole.PROJECT_COORDINATOR ? 'brand' : 'neutral'}>{roleLabel(user.role)}</Badge>
                   </Td>
                   <Td className="text-muted">{user.jobTitle ?? '—'}</Td>
-                  <Td>{user.isActive ? <Badge tone="success">Active</Badge> : <Badge tone="danger">Deactivated</Badge>}</Td>
+                  <Td>
+                    <div className="flex flex-wrap gap-1">
+                      {user.isActive ? <Badge tone="success">Active</Badge> : <Badge tone="danger">Deactivated</Badge>}
+                      {user.isActive && !user.twoFactorEnabledAt && (
+                        <span title="Will set up the authenticator app at the next sign-in">
+                          <Badge tone="warning">2-step pending</Badge>
+                        </span>
+                      )}
+                    </div>
+                  </Td>
                   <Td className="whitespace-nowrap text-muted">{formatDateTime(user.lastLoginAt)}</Td>
                   {canManage && (
                     <Td>
@@ -177,9 +187,9 @@ export function UserManagement() {
                                       <ArrowUpDown /> {user.role === OrgRole.PROJECT_COORDINATOR ? 'Make member' : 'Make project coordinator'}
                                     </DropdownItem>
                                   )}
-                                  {user.isActive && (
-                                    <DropdownItem onClick={() => { close(); invite.mutate(user.id); }}>
-                                      <Mail /> {user.lastLoginAt ? 'Email password link' : 'Resend invitation'}
+                                  {user.twoFactorEnabledAt && user.id !== session?.id && (
+                                    <DropdownItem onClick={() => { close(); setResettingTwoFactor(user); }}>
+                                      <Smartphone /> Reset two-step sign-in
                                     </DropdownItem>
                                   )}
                                   {user.id !== session?.id && (
@@ -217,6 +227,19 @@ export function UserManagement() {
         roles={canManageCoordinators ? ORG_ROLES : [OrgRole.MEMBER]}
       />
       <ResetPasswordModal user={resetting} onClose={() => setResetting(null)} />
+      <ConfirmDialog
+        open={!!resettingTwoFactor}
+        onClose={() => setResettingTwoFactor(null)}
+        title="Reset two-step sign-in?"
+        message={
+          resettingTwoFactor
+            ? `${fullName(resettingTwoFactor)} will be signed out and will scan a new QR code at their next sign-in. Use this when they lose or replace their phone.`
+            : ''
+        }
+        confirmLabel="Reset"
+        loading={resetTwoFactor.isPending}
+        onConfirm={() => resettingTwoFactor && resetTwoFactor.mutate(resettingTwoFactor.id, { onSuccess: () => setResettingTwoFactor(null) })}
+      />
       <RemovePersonDialog
         person={removing}
         candidates={activePeople?.data ?? []}
@@ -270,11 +293,9 @@ function UserFormModal({ user, onClose, isSelf, roles }: { user: User | 'new' | 
       hourlyRate: values.hourlyRate ? Number(values.hourlyRate) : null,
     };
     if (isNew) {
-      // Without a password the API emails an invitation link instead.
-      const password = values.password || undefined;
-      const parsed = password ? passwordSchema(minPasswordLength).safeParse(password) : null;
-      if (parsed && !parsed.success) return form.setError('password', { message: parsed.error.issues[0]?.message });
-      create.mutate({ ...base, email: values.email, role: values.role, password }, { onSuccess: onClose });
+      const parsed = passwordSchema(minPasswordLength).safeParse(values.password ?? '');
+      if (!parsed.success) return form.setError('password', { message: parsed.error.issues[0]?.message });
+      create.mutate({ ...base, email: values.email, role: values.role, password: parsed.data }, { onSuccess: onClose });
     } else if (existing) {
       update.mutate({ id: existing.id, ...base, ...(roleLocked ? {} : { role: values.role }) }, { onSuccess: onClose });
     }
@@ -331,7 +352,7 @@ function UserFormModal({ user, onClose, isSelf, roles }: { user: User | 'new' | 
           <Input {...form.register('jobTitle')} />
         </Field>
         {isNew && (
-          <Field label="Initial password (optional)" error={errors.password?.message} hint="Leave empty to email them an invitation link to choose their own password." className="sm:col-span-2">
+          <Field label="Initial password" required error={errors.password?.message} hint="Share it with them securely; they set up their authenticator app at the first sign-in." className="sm:col-span-2">
             <Input type="password" autoComplete="new-password" {...form.register('password')} />
           </Field>
         )}

@@ -6,15 +6,14 @@
 -- database. DATABASE_URL and DIRECT_URL must therefore end with &schema=ptms.
 --
 -- How to use: Neon console -> your project -> SQL Editor -> select the database your
--- DATABASE_URL points to -> paste this whole file -> Run. Run it only once. The file is 152 lines and ends with COMMIT;
+-- DATABASE_URL points to -> paste this whole file -> Run. Run it only once. The file is 148 lines and ends with COMMIT;
 -- check the editor shows the same before you click Run.
 -- Change the password after your first sign-in (Profile -> Change password).
 
 BEGIN;
 CREATE SCHEMA IF NOT EXISTS "ptms";
 CREATE TABLE "ptms"."Organization" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "slug" TEXT NOT NULL, "logoUrl" TEXT, "primaryColor" TEXT, "timezone" TEXT NOT NULL, "weekStartsOn" INTEGER NOT NULL, "workingHoursPerDay" DOUBLE PRECISION NOT NULL, "isActive" BOOLEAN NOT NULL DEFAULT true, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "Organization_pkey" PRIMARY KEY ("id"));
-CREATE TABLE "ptms"."User" ("id" TEXT NOT NULL, "organizationId" TEXT, "email" TEXT NOT NULL, "passwordHash" TEXT NOT NULL, "firstName" TEXT NOT NULL, "lastName" TEXT NOT NULL, "jobTitle" TEXT, "avatarUrl" TEXT, "role" TEXT NOT NULL, "isActive" BOOLEAN NOT NULL DEFAULT true, "hourlyRate" DOUBLE PRECISION, "lastLoginAt" TIMESTAMP(3), "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "User_pkey" PRIMARY KEY ("id"));
-CREATE TABLE "ptms"."AuthToken" ("id" TEXT NOT NULL, "userId" TEXT NOT NULL, "purpose" TEXT NOT NULL, "tokenHash" TEXT NOT NULL, "expiresAt" TIMESTAMP(3) NOT NULL, "usedAt" TIMESTAMP(3), "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "AuthToken_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "ptms"."User" ("id" TEXT NOT NULL, "organizationId" TEXT, "email" TEXT NOT NULL, "passwordHash" TEXT NOT NULL, "firstName" TEXT NOT NULL, "lastName" TEXT NOT NULL, "jobTitle" TEXT, "avatarUrl" TEXT, "role" TEXT NOT NULL, "isActive" BOOLEAN NOT NULL DEFAULT true, "hourlyRate" DOUBLE PRECISION, "lastLoginAt" TIMESTAMP(3), "twoFactorSecret" TEXT, "twoFactorEnabledAt" TIMESTAMP(3), "twoFactorRecoveryCodes" TEXT, "twoFactorLastStep" INTEGER, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "User_pkey" PRIMARY KEY ("id"));
 CREATE TABLE "ptms"."RefreshToken" ("id" TEXT NOT NULL, "userId" TEXT NOT NULL, "tokenHash" TEXT NOT NULL, "expiresAt" TIMESTAMP(3) NOT NULL, "revokedAt" TIMESTAMP(3), "userAgent" TEXT, "ipAddress" TEXT, "persistent" BOOLEAN NOT NULL DEFAULT false, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "RefreshToken_pkey" PRIMARY KEY ("id"));
 CREATE TABLE "ptms"."Lookup" ("id" TEXT NOT NULL, "organizationId" TEXT NOT NULL, "type" TEXT NOT NULL, "name" TEXT NOT NULL, "color" TEXT NOT NULL, "category" TEXT, "position" INTEGER NOT NULL DEFAULT 0, "isDefault" BOOLEAN NOT NULL DEFAULT false, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "Lookup_pkey" PRIMARY KEY ("id"));
 CREATE TABLE "ptms"."Project" ("id" TEXT NOT NULL, "organizationId" TEXT NOT NULL, "key" TEXT NOT NULL, "name" TEXT NOT NULL, "description" TEXT, "color" TEXT, "statusId" TEXT NOT NULL, "ownerId" TEXT NOT NULL, "startDate" TIMESTAMP(3), "endDate" TIMESTAMP(3), "budgetHours" DOUBLE PRECISION, "isArchived" BOOLEAN NOT NULL DEFAULT false, "taskCounter" INTEGER NOT NULL DEFAULT 0, "issueCounter" INTEGER NOT NULL DEFAULT 0, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "Project_pkey" PRIMARY KEY ("id"));
@@ -37,8 +36,6 @@ CREATE TABLE "ptms"."Meeting" ("id" TEXT NOT NULL, "organizationId" TEXT NOT NUL
 CREATE UNIQUE INDEX "Organization_slug_key" ON "ptms"."Organization"("slug");
 CREATE UNIQUE INDEX "User_email_key" ON "ptms"."User"("email");
 CREATE INDEX "User_organizationId_idx" ON "ptms"."User"("organizationId");
-CREATE UNIQUE INDEX "AuthToken_tokenHash_key" ON "ptms"."AuthToken"("tokenHash");
-CREATE INDEX "AuthToken_userId_idx" ON "ptms"."AuthToken"("userId");
 CREATE INDEX "RefreshToken_userId_idx" ON "ptms"."RefreshToken"("userId");
 CREATE INDEX "Lookup_organizationId_type_idx" ON "ptms"."Lookup"("organizationId", "type");
 CREATE UNIQUE INDEX "Lookup_organizationId_type_name_key" ON "ptms"."Lookup"("organizationId", "type", "name");
@@ -71,7 +68,6 @@ CREATE UNIQUE INDEX "CustomFieldValue_fieldId_taskId_key" ON "ptms"."CustomField
 CREATE INDEX "Meeting_organizationId_startsAt_idx" ON "ptms"."Meeting"("organizationId", "startsAt");
 CREATE INDEX "Meeting_projectId_startsAt_idx" ON "ptms"."Meeting"("projectId", "startsAt");
 ALTER TABLE "ptms"."User" ADD CONSTRAINT "User_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "ptms"."Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "ptms"."AuthToken" ADD CONSTRAINT "AuthToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "ptms"."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "ptms"."RefreshToken" ADD CONSTRAINT "RefreshToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "ptms"."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "ptms"."Lookup" ADD CONSTRAINT "Lookup_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "ptms"."Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "ptms"."Project" ADD CONSTRAINT "Project_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "ptms"."Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;

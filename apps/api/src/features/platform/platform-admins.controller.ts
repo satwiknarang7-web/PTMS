@@ -1,14 +1,13 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post } from '@nestjs/common';
 import { ApiProperty, ApiTags } from '@nestjs/swagger';
 import { IsBoolean } from 'class-validator';
-import type { Request } from 'express';
 import { Permission } from '../../common/constants/permissions.constants';
 import { PlatformOnly } from '../../common/decorators/account-scope.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { PlatformUser } from '../../common/interfaces/authenticated-user.interface';
-import { requestOrigin } from '../../common/utils/request.util';
 import { InitialCoordinatorDto } from '../organizations/dto/platform-organization.dto';
+import { ResetPasswordDto } from '../users/dto/user.dto';
 import { PlatformAdminsService } from './platform-admins.service';
 
 class UpdatePlatformAdminDto {
@@ -16,8 +15,6 @@ class UpdatePlatformAdminDto {
   @IsBoolean()
   isActive: boolean;
 }
-
-const inviter = (user: PlatformUser, req: Request) => ({ name: `${user.firstName} ${user.lastName}`, origin: requestOrigin(req) });
 
 @ApiTags('Platform · Root admins')
 @Controller('platform/admins')
@@ -32,14 +29,20 @@ export class PlatformAdminsController {
   }
 
   @Post()
-  create(@Body() dto: InitialCoordinatorDto, @CurrentUser() user: PlatformUser, @Req() req: Request) {
-    return this.admins.create(dto, inviter(user, req));
+  create(@Body() dto: InitialCoordinatorDto) {
+    return this.admins.create(dto);
   }
 
-  @Post(':id/invite')
+  @Post(':id/reset-two-factor')
   @HttpCode(HttpStatus.NO_CONTENT)
-  resendInvite(@Param('id') id: string, @CurrentUser() user: PlatformUser, @Req() req: Request) {
-    return this.admins.resendInvite(id, inviter(user, req));
+  resetTwoFactor(@Param('id') id: string, @CurrentUser() user: PlatformUser) {
+    return this.admins.resetTwoFactor(user.id, id);
+  }
+
+  @Post(':id/reset-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  resetPassword(@Param('id') id: string, @Body() dto: ResetPasswordDto, @CurrentUser() user: PlatformUser) {
+    return this.admins.resetPassword(user.id, id, dto.password);
   }
 
   @Patch(':id')

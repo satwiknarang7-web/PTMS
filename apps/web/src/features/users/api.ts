@@ -59,11 +59,13 @@ export function useRemoveUser() {
   });
 }
 
-/** Emails a link to choose a password (a new link; earlier ones stop working). */
-export function useSendInvite() {
+/** Clears someone's authenticator app (lost phone); they set it up again at their next sign-in. */
+export function useResetTwoFactor() {
+  const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.post(`/users/${id}/invite`),
-    meta: { successMessage: 'Email sent' },
+    mutationFn: (id: string) => api.post(`/users/${id}/reset-two-factor`),
+    meta: { successMessage: 'Two-step sign-in reset. They will set it up again at their next sign-in.' },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: userKeys.all }),
   });
 }
 

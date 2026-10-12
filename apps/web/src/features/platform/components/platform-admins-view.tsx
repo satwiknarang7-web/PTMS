@@ -1,6 +1,6 @@
 'use client';
 
-import { Mail, ShieldCheck, UserCheck, UserPlus, UserX } from 'lucide-react';
+import { KeyRound, ShieldCheck, UserCheck, UserPlus, UserX } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSession } from '@/features/auth/api';
 import { errorMessage } from '@/shared/lib/api-client';
@@ -14,7 +14,8 @@ import { Field, FormAlert, Input } from '@/shared/ui/form';
 import { PageHeader } from '@/shared/ui/layout';
 import { ConfirmDialog, Modal } from '@/shared/ui/modal';
 import { Table, Td, Th, Tr } from '@/shared/ui/table';
-import { useCreatePlatformAdmin, usePlatformAdmins, useSendPlatformAdminInvite, useUpdatePlatformAdmin } from '../api';
+import { ResetAccessDialog } from '@/features/users/components/reset-access-dialog';
+import { useCreatePlatformAdmin, usePlatformAdmins, useResetPlatformAdminPassword, useResetPlatformAdminTwoFactor, useUpdatePlatformAdmin } from '../api';
 import type { PlatformAdmin } from '../types';
 
 /** Root admins create organizations, appoint project coordinators and add other root admins. */
@@ -22,7 +23,9 @@ export function PlatformAdminsView() {
   const { data: session } = useSession();
   const { data, isLoading, isError, error, refetch } = usePlatformAdmins();
   const update = useUpdatePlatformAdmin();
-  const invite = useSendPlatformAdminInvite();
+  const resetPassword = useResetPlatformAdminPassword();
+  const resetTwoFactor = useResetPlatformAdminTwoFactor();
+  const [resettingAccess, setResettingAccess] = useState<PlatformAdmin | null>(null);
   const [adding, setAdding] = useState(false);
   const [deactivating, setDeactivating] = useState<PlatformAdmin | null>(null);
 
@@ -71,21 +74,19 @@ export function PlatformAdminsView() {
                   <Td>
                     {!admin.isActive ? (
                       <Badge tone="danger">Deactivated</Badge>
-                    ) : admin.lastLoginAt ? (
+                    ) : admin.twoFactorEnabledAt ? (
                       <Badge tone="success">Active</Badge>
                     ) : (
-                      <Badge tone="warning">Invited</Badge>
+                      <Badge tone="warning">2-step pending</Badge>
                     )}
                   </Td>
                   <Td className="whitespace-nowrap text-muted">{formatDateTime(admin.lastLoginAt)}</Td>
                   <Td>
                     {admin.id !== session?.id && (
                       <div className="flex justify-end gap-1">
-                        {admin.isActive && !admin.lastLoginAt && (
-                          <Button size="sm" variant="ghost" loading={invite.isPending && invite.variables === admin.id} onClick={() => invite.mutate(admin.id)}>
-                            <Mail /> Resend invite
-                          </Button>
-                        )}
+                        <Button size="sm" variant="ghost" onClick={() => setResettingAccess(admin)}>
+                          <KeyRound /> Reset access
+                        </Button>
                         {admin.isActive ? (
                           <Button size="sm" variant="ghost" onClick={() => setDeactivating(admin)}>
                             <UserX /> Deactivate
@@ -106,6 +107,14 @@ export function PlatformAdminsView() {
       </Card>
 
       <AddAdminModal open={adding} onClose={() => setAdding(false)} />
+      <ResetAccessDialog
+        person={resettingAccess}
+        onClose={() => setResettingAccess(null)}
+        passwordPending={resetPassword.isPending}
+        twoFactorPending={resetTwoFactor.isPending}
+        onResetPassword={(password, done) => resettingAccess && resetPassword.mutate({ id: resettingAccess.id, password }, { onSuccess: done })}
+        onResetTwoFactor={(done) => resettingAccess && resetTwoFactor.mutate(resettingAccess.id, { onSuccess: done })}
+      />
       <ConfirmDialog
         open={!!deactivating}
         onClose={() => setDeactivating(null)}
@@ -135,9 +144,9 @@ function AddAdminModal({ open, onClose }: { open: boolean; onClose: () => void }
 
   const set = (key: keyof typeof EMPTY) => (event: { target: { value: string } }) => setValues((v) => ({ ...v, [key]: event.target.value }));
   const submit = () => {
-    if ([values.firstName, values.lastName, values.email].some((v) => !v.trim())) return setError('Name and email are required');
+    if (Object.values(values).some((v) => !v.trim())) return setError('All fields are required');
     create.mutate(
-      { firstName: values.firstName.trim(), lastName: values.lastName.trim(), email: values.email.trim(), password: values.password || undefined },
+      { firstName: values.firstName.trim(), lastName: values.lastName.trim(), email: values.email.trim(), password: values.password },
       { onSuccess: onClose },
     );
   };
@@ -174,7 +183,7 @@ function AddAdminModal({ open, onClose }: { open: boolean; onClose: () => void }
         <Field label="Email" required className="sm:col-span-2">
           <Input type="email" value={values.email} onChange={set('email')} />
         </Field>
-        <Field label="Initial password (optional)" hint="Leave empty to email them an invitation link to choose their own password." className="sm:col-span-2">
+        <Field label="Initial password" required hint="Share it securely. They set up their authenticator app at the first sign-in." className="sm:col-span-2">
           <Input type="password" autoComplete="new-password" value={values.password} onChange={set('password')} />
         </Field>
       </div>

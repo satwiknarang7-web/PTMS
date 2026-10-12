@@ -1,9 +1,7 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import type { Request } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { PlatformUser } from '../../common/interfaces/authenticated-user.interface';
-import { requestOrigin } from '../../common/utils/request.util';
 import { Permission } from '../../common/constants/permissions.constants';
 import { PlatformOnly } from '../../common/decorators/account-scope.decorator';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
@@ -14,11 +12,9 @@ import {
   PlatformOrganizationQueryDto,
   UpdatePlatformOrganizationDto,
 } from './dto/platform-organization.dto';
-import { RemoveUserQueryDto } from '../users/dto/user.dto';
+import { RemoveUserQueryDto, ResetPasswordDto } from '../users/dto/user.dto';
 import { UsersService } from '../users/users.service';
-import { Inviter, PlatformOrganizationsService } from './platform-organizations.service';
-
-const inviter = (user: PlatformUser, req: Request): Inviter => ({ name: `${user.firstName} ${user.lastName}`, origin: requestOrigin(req) });
+import { PlatformOrganizationsService } from './platform-organizations.service';
 
 @ApiTags('Platform · Organizations')
 @Controller('platform/organizations')
@@ -41,19 +37,25 @@ export class PlatformOrganizationsController {
   }
 
   @Post()
-  create(@Body() dto: CreatePlatformOrganizationDto, @CurrentUser() user: PlatformUser, @Req() req: Request) {
-    return this.organizations.create(dto, inviter(user, req));
+  create(@Body() dto: CreatePlatformOrganizationDto) {
+    return this.organizations.create(dto);
   }
 
   @Post(':id/coordinators')
-  addCoordinator(@Param('id') id: string, @Body() dto: InitialCoordinatorDto, @CurrentUser() user: PlatformUser, @Req() req: Request) {
-    return this.organizations.addCoordinator(id, dto, inviter(user, req));
+  addCoordinator(@Param('id') id: string, @Body() dto: InitialCoordinatorDto) {
+    return this.organizations.addCoordinator(id, dto);
   }
 
-  @Post(':id/coordinators/:userId/invite')
+  @Post(':id/users/:userId/reset-two-factor')
   @HttpCode(HttpStatus.NO_CONTENT)
-  resendCoordinatorInvite(@Param('id') id: string, @Param('userId') userId: string, @CurrentUser() user: PlatformUser, @Req() req: Request) {
-    return this.organizations.resendCoordinatorInvite(id, userId, inviter(user, req));
+  resetTwoFactor(@Param('id') id: string, @Param('userId') userId: string) {
+    return this.organizations.resetTwoFactor(id, userId);
+  }
+
+  @Post(':id/users/:userId/reset-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  resetPassword(@Param('id') id: string, @Param('userId') userId: string, @Body() dto: ResetPasswordDto) {
+    return this.organizations.resetPassword(id, userId, dto.password);
   }
 
   /** Permanently removes a person from the organization; their work goes to `transferTo` or a coordinator. */

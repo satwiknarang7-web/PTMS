@@ -1,22 +1,11 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Res } from '@nestjs/common';
-import { ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
-import { IsEmail, IsOptional } from 'class-validator';
+import { Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Res } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { Permission } from '../../common/constants/permissions.constants';
 import { PlatformOnly } from '../../common/decorators/account-scope.decorator';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { PlatformUser } from '../../common/interfaces/authenticated-user.interface';
 import { AuthCookieService } from '../auth/auth-cookie.service';
-import { MailService } from '../mail/mail.service';
 import { PlatformService } from './platform.service';
-
-class TestEmailDto {
-  @ApiPropertyOptional({ description: 'Defaults to the signed-in root admin' })
-  @IsOptional()
-  @IsEmail()
-  to?: string;
-}
 
 @ApiTags('Platform')
 @Controller('platform')
@@ -26,21 +15,7 @@ export class PlatformController {
   constructor(
     private readonly platform: PlatformService,
     private readonly cookies: AuthCookieService,
-    private readonly mail: MailService,
   ) {}
-
-  /** Email (SMTP) settings without the password, to check the configuration. */
-  @Get('mail')
-  mailSettings() {
-    return this.mail.settings();
-  }
-
-  /** Sends a test email; a failure explains which SMTP setting to fix. */
-  @Post('mail/test')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  sendTestEmail(@Body() dto: TestEmailDto, @CurrentUser() user: PlatformUser) {
-    return this.mail.sendTest(dto.to ?? user.email);
-  }
 
   @Get('overview')
   overview() {

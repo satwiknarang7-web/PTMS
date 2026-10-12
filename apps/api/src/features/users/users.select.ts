@@ -12,6 +12,7 @@ export const USER_PUBLIC_SELECT = {
   isActive: true,
   hourlyRate: true,
   lastLoginAt: true,
+  twoFactorEnabledAt: true,
   createdAt: true,
 } satisfies Prisma.UserSelect;
 

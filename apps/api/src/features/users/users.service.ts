@@ -20,7 +20,6 @@ import {
   UpdateUserDto,
   UserQueryDto,
 } from './dto/user.dto';
-import { AccountLinksService } from './account-links.service';
 import { PasswordService } from './password.service';
 import { PublicUser, USER_DIRECTORY_SELECT, USER_PUBLIC_SELECT } from './users.select';
 
@@ -36,7 +35,6 @@ export class UsersService {
     private readonly prisma: PrismaService,
     private readonly passwords: PasswordService,
     private readonly pagination: PaginationService,
-    private readonly links: AccountLinksService,
   ) {}
 
   /** `fullView` (coordinators and root) includes pay rates and sign-in activity. */
@@ -187,15 +185,14 @@ export class UsersService {
     };
   }
 
-  /** Without a password, the new user receives an invitation email to choose one. */
-  async create(actor: AuthenticatedUser, dto: CreateUserDto, origin: string): Promise<PublicUser> {
+  async create(actor: AuthenticatedUser, dto: CreateUserDto): Promise<PublicUser> {
     const email = dto.email.toLowerCase();
     if (await this.prisma.user.findUnique({ where: { email } })) {
       throw new ConflictException('A user with this email already exists');
     }
     this.assertCanAssignRole(actor, dto.role);
 
-    const user = await this.prisma.user.create({
+    return this.prisma.user.create({
       data: {
         organizationId: actor.organizationId,
         email,
@@ -204,33 +201,12 @@ export class UsersService {
         jobTitle: dto.jobTitle ?? null,
         hourlyRate: dto.hourlyRate ?? null,
         role: dto.role,
-        passwordHash: dto.password ? await this.passwords.hash(dto.password) : await this.links.unusablePasswordHash(),
+        passwordHash: await this.passwords.hash(dto.password),
       },
       select: USER_PUBLIC_SELECT,
     });
-    if (!dto.password) await this.inviteOrRollback(user, actor, origin);
-    return user;
   }
 
-  /** Re-sends the invitation email (a new link; earlier ones stop working). */
-  async resendInvite(actor: AuthenticatedUser, id: string, origin: string): Promise<void> {
-    const target = await this.findOne(actor.organizationId, id);
-    this.assertCanManage(actor, target.role);
-    if (!target.isActive) throw new BadRequestException('Activate the account before inviting it');
-    const organization = await this.prisma.organization.findUnique({ where: { id: actor.organizationId }, select: { name: true } });
-    await this.links.sendInvite(target, origin, `${actor.firstName} ${actor.lastName}`, organization?.name);
-  }
-
-  /** An account nobody can sign in to is useless, so it is removed when its invitation cannot be sent. */
-  private async inviteOrRollback(user: PublicUser, actor: AuthenticatedUser, origin: string): Promise<void> {
-    try {
-      const organization = await this.prisma.organization.findUnique({ where: { id: actor.organizationId }, select: { name: true } });
-      await this.links.sendInvite(user, origin, `${actor.firstName} ${actor.lastName}`, organization?.name);
-    } catch (error) {
-      await this.prisma.user.delete({ where: { id: user.id } });
-      throw error;
-    }
-  }
 
   async update(actor: AuthenticatedUser, id: string, dto: UpdateUserDto): Promise<PublicUser> {
     const target = await this.findOne(actor.organizationId, id);
@@ -252,6 +228,14 @@ export class UsersService {
     const target = await this.findOne(actor.organizationId, id);
     this.assertCanManage(actor, target.role);
     await this.prisma.user.update({ where: { id }, data: { passwordHash: await this.passwords.hash(password) } });
+    await this.revokeSessions(id);
+  }
+
+  /** Clears someone's authenticator app (lost phone); they set it up again at their next sign-in. */
+  async resetTwoFactor(actor: AuthenticatedUser, id: string): Promise<void> {
+    const target = await this.findOne(actor.organizationId, id);
+    this.assertCanManage(actor, target.role);
+    await this.prisma.user.update({ where: { id }, data: { twoFactorSecret: null, twoFactorEnabledAt: null, twoFactorRecoveryCodes: null, twoFactorLastStep: null } });
     await this.revokeSessions(id);
   }
 

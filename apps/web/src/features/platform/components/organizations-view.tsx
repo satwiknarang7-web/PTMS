@@ -1,6 +1,6 @@
 'use client';
 
-import { Building2, LogIn, Mail, MoreHorizontal, Pause, Play, Plus, Search, Trash2, UserPlus } from 'lucide-react';
+import { Building2, KeyRound, LogIn, MoreHorizontal, Pause, Play, Plus, Search, Trash2, UserPlus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { appConfig } from '@/shared/config/env';
 import { OrgRole, roleLabel } from '@/shared/constants/domain';
@@ -23,7 +23,8 @@ import {
   useAddCoordinator,
   useChangeOrganizationRole,
   useRemoveOrganizationUser,
-  useSendCoordinatorInvite,
+  useResetOrganizationUserPassword,
+  useResetOrganizationUserTwoFactor,
   useCreateOrganization,
   useDeletePlatformOrganization,
   useEnterWorkspace,
@@ -32,6 +33,7 @@ import {
   useUpdatePlatformOrganization,
 } from '../api';
 import { RemovePersonDialog } from '@/features/users/components/remove-person-dialog';
+import { ResetAccessDialog } from '@/features/users/components/reset-access-dialog';
 import type { PlatformOrganizationDetail } from '../types';
 
 type StatusFilter = 'all' | 'active' | 'suspended';
@@ -145,7 +147,9 @@ function OrganizationDrawer({ organizationId, onClose }: { organizationId: strin
 function OrganizationDetails({ org, onDeleted }: { org: PlatformOrganizationDetail; onDeleted: () => void }) {
   const update = useUpdatePlatformOrganization();
   const remove = useDeletePlatformOrganization();
-  const invite = useSendCoordinatorInvite();
+  const resetPassword = useResetOrganizationUserPassword();
+  const resetTwoFactor = useResetOrganizationUserTwoFactor();
+  const [resettingAccess, setResettingAccess] = useState<PlatformOrganizationDetail['people'][number] | null>(null);
   const removeUser = useRemoveOrganizationUser();
   const [removing, setRemoving] = useState<PlatformOrganizationDetail['people'][number] | null>(null);
   const changeRole = useChangeOrganizationRole();
@@ -185,6 +189,7 @@ function OrganizationDetails({ org, onDeleted }: { org: PlatformOrganizationDeta
                   <span className="flex items-center gap-2 truncate text-sm font-medium">
                     <span className="truncate">{fullName(u)}</span>
                     {!u.isActive && <Badge tone="danger">Inactive</Badge>}
+                    {u.isActive && !u.twoFactorEnabledAt && <Badge tone="warning">2-step pending</Badge>}
                   </span>
                   <span className="block truncate text-xs text-muted">
                     {u.email} · last sign-in {formatDateTime(u.lastLoginAt)}
@@ -201,18 +206,9 @@ function OrganizationDetails({ org, onDeleted }: { org: PlatformOrganizationDeta
                   <option value={OrgRole.PROJECT_COORDINATOR}>{roleLabel(OrgRole.PROJECT_COORDINATOR)}</option>
                 </Select>
                 <span className="flex items-center">
-                  {u.isActive && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      title={u.lastLoginAt ? 'Email a link to set a new password' : 'Resend invitation email'}
-                      aria-label={u.lastLoginAt ? 'Email password link' : 'Resend invitation'}
-                      loading={invite.isPending && invite.variables?.userId === u.id}
-                      onClick={() => invite.mutate({ organizationId: org.id, userId: u.id })}
-                    >
-                      <Mail />
-                    </Button>
-                  )}
+                  <Button size="sm" variant="ghost" title="Reset password or two-step sign-in" aria-label={`Reset access for ${fullName(u)}`} onClick={() => setResettingAccess(u)}>
+                    <KeyRound />
+                  </Button>
                   <Button size="sm" variant="ghost" title="Remove from organization" aria-label={`Remove ${fullName(u)}`} onClick={() => setRemoving(u)}>
                     <Trash2 className="text-danger" />
                   </Button>
@@ -222,6 +218,16 @@ function OrganizationDetails({ org, onDeleted }: { org: PlatformOrganizationDeta
           </ul>
         )}
         <p className="mt-2 text-xs text-muted">To edit details, deactivate or add members, open the workspace and use Settings → Users.</p>
+        <ResetAccessDialog
+          person={resettingAccess}
+          onClose={() => setResettingAccess(null)}
+          passwordPending={resetPassword.isPending}
+          twoFactorPending={resetTwoFactor.isPending}
+          onResetPassword={(password, done) =>
+            resettingAccess && resetPassword.mutate({ organizationId: org.id, userId: resettingAccess.id, password }, { onSuccess: done })
+          }
+          onResetTwoFactor={(done) => resettingAccess && resetTwoFactor.mutate({ organizationId: org.id, userId: resettingAccess.id }, { onSuccess: done })}
+        />
         <RemovePersonDialog
           person={removing}
           candidates={org.people.filter((c) => c.isActive)}
@@ -334,11 +340,11 @@ function CreateOrganizationModal({ open, onClose, onCreated }: { open: boolean; 
   const set = (key: keyof typeof EMPTY_FORM) => (event: { target: { value: string } }) => setValues((v) => ({ ...v, [key]: event.target.value }));
 
   const submit = () => {
-    if ([values.name, values.firstName, values.lastName, values.email].some((v) => !v.trim())) return setError('Name and coordinator details are required');
+    if (Object.values(values).some((v) => !v.trim())) return setError('All fields are required');
     create.mutate(
       {
         name: values.name.trim(),
-        coordinator: { firstName: values.firstName.trim(), lastName: values.lastName.trim(), email: values.email.trim(), password: values.password || undefined },
+        coordinator: { firstName: values.firstName.trim(), lastName: values.lastName.trim(), email: values.email.trim(), password: values.password },
       },
       {
         onSuccess: (org) => {
@@ -385,7 +391,7 @@ function CreateOrganizationModal({ open, onClose, onCreated }: { open: boolean; 
         <Field label="Email" required className="sm:col-span-2">
           <Input type="email" value={values.email} onChange={set('email')} />
         </Field>
-        <Field label="Initial password (optional)" hint="Leave empty to email them an invitation link to choose their own password." className="sm:col-span-2">
+        <Field label="Initial password" required hint="Upper and lower case letters and a number; share it securely. They set up their authenticator app at the first sign-in." className="sm:col-span-2">
           <Input type="password" autoComplete="new-password" value={values.password} onChange={set('password')} />
         </Field>
       </div>
@@ -411,9 +417,9 @@ function PersonModal({ open, onClose, title, description, organizationId }: { op
 
   const set = (key: keyof typeof EMPTY_PERSON) => (event: { target: { value: string } }) => setValues((v) => ({ ...v, [key]: event.target.value }));
   const submit = () => {
-    if ([values.firstName, values.lastName, values.email].some((v) => !v.trim())) return setError('Name and email are required');
+    if (Object.values(values).some((v) => !v.trim())) return setError('All fields are required');
     add.mutate(
-      { organizationId, firstName: values.firstName.trim(), lastName: values.lastName.trim(), email: values.email.trim(), password: values.password || undefined },
+      { organizationId, firstName: values.firstName.trim(), lastName: values.lastName.trim(), email: values.email.trim(), password: values.password },
       { onSuccess: onClose },
     );
   };
@@ -450,7 +456,7 @@ function PersonModal({ open, onClose, title, description, organizationId }: { op
         <Field label="Email" required className="sm:col-span-2">
           <Input type="email" value={values.email} onChange={set('email')} />
         </Field>
-        <Field label="Initial password (optional)" hint="Leave empty to email them an invitation link to choose their own password." className="sm:col-span-2">
+        <Field label="Initial password" required hint="Upper and lower case letters and a number; share it securely. They set up their authenticator app at the first sign-in." className="sm:col-span-2">
           <Input type="password" autoComplete="new-password" value={values.password} onChange={set('password')} />
         </Field>
       </div>

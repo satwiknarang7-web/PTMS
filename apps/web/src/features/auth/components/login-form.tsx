@@ -13,6 +13,7 @@ import { errorMessage } from '@/shared/lib/api-client';
 import { Button } from '@/shared/ui/button';
 import { Checkbox, Field, FormAlert, Input } from '@/shared/ui/form';
 import { authApi, useAuthConfig, useLogin } from '../api';
+import { TwoFactorCodeStep, TwoFactorSetupStep } from './two-factor-steps';
 import { loginSchema, type LoginValues } from '../schemas';
 
 /** Only allow same-app relative redirects after login. */
@@ -26,28 +27,45 @@ export function LoginForm() {
   const login = useLogin();
   const { data: config } = useAuthConfig();
   const [showPassword, setShowPassword] = useState(false);
+  /** After the password: enter an authenticator code, or set the app up on the first sign-in. */
+  const [step, setStep] = useState<{ kind: 'code' | 'setup'; challenge: string } | null>(null);
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: '', password: '', remember: false },
   });
   const { errors, isSubmitting } = form.formState;
 
+  /** Session is set: go to the platform console (root) or where the person was heading. */
+  const finish = async () => {
+    const me = await authApi.me();
+    router.replace(me.role === PLATFORM_ROOT_ROLE ? routes.platform : safeNext(searchParams.get('next')));
+    router.refresh();
+  };
+
   const onSubmit = form.handleSubmit(async (values) => {
-    let destination: string;
     try {
-      await login.mutateAsync(values);
-      const me = await authApi.me();
-      destination = me.role === PLATFORM_ROOT_ROLE ? routes.platform : safeNext(searchParams.get('next'));
+      const result = await login.mutateAsync(values);
+      if (result.status === 'ok') return await finish();
+      setStep({ kind: result.status === 'two_factor_required' ? 'code' : 'setup', challenge: result.challenge });
     } catch {
       return; // surfaced through login.error
     }
-    router.replace(destination);
-    router.refresh();
   });
+
+  if (step) {
+    const back = () => {
+      setStep(null);
+      form.setValue('password', '');
+    };
+    return step.kind === 'code' ? (
+      <TwoFactorCodeStep challenge={step.challenge} onSuccess={finish} onBack={back} />
+    ) : (
+      <TwoFactorSetupStep challenge={step.challenge} onSuccess={finish} onBack={back} />
+    );
+  }
 
   return (
     <form onSubmit={onSubmit} className="space-y-5" noValidate>
-      {searchParams.get('reset') === '1' && !login.isError && <FormAlert tone="success">Your password is set. Sign in with it below.</FormAlert>}
       {login.isError && <FormAlert>{errorMessage(login.error)}</FormAlert>}
 
       <Field label="Work email" htmlFor="email" error={errors.email?.message}>
@@ -100,7 +118,7 @@ export function LoginForm() {
       </Button>
 
       <p className="text-center text-sm text-muted">
-        New here? Your project coordinator sends you an invitation email.
+        New here? Ask your project coordinator for an account.
         {appConfig.supportEmail && (
           <>
             {' '}

@@ -37,10 +37,9 @@ export class InitialCoordinatorDto {
   @MaxLength(254)
   email: string;
 
-  @ApiPropertyOptional({ description: 'Initial password; leave out to email an invitation link instead' })
-  @IsOptional()
+  @ApiProperty({ description: 'Initial password, the person can change it after signing in' })
   @IsPassword()
-  password?: string;
+  password: string;
 }
 
 export class CreatePlatformOrganizationDto {

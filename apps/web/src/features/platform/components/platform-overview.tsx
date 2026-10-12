@@ -11,7 +11,6 @@ import { ErrorState, Spinner } from '@/shared/ui/feedback';
 import { PageHeader } from '@/shared/ui/layout';
 import { KpiStrip } from '@/shared/components/kpi-strip';
 import { usePlatformOverview } from '../api';
-import { EmailSettingsCard } from './email-settings-card';
 
 export function PlatformOverview() {
   const { data, isLoading, isError, error, refetch } = usePlatformOverview();
@@ -59,9 +58,6 @@ export function PlatformOverview() {
             ))}
           </ul>
         </Card>
-      </div>
-      <div className="mt-6">
-        <EmailSettingsCard />
       </div>
     </>
   );
