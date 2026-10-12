@@ -370,12 +370,32 @@ model Comment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  author User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  task   Task?  @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  issue  Issue? @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  author      User                @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  task        Task?               @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  issue       Issue?              @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  attachments CommentAttachment[]
 
   @@index([taskId])
   @@index([issueId])
+}
+
+/// An image attached to a comment. Uploaded before the comment is posted (commentId empty until then);
+/// unused uploads are cleared after a day. Stored in the database so no file storage service is needed.
+model CommentAttachment {
+  id         String   @id @default(cuid())
+  commentId  String?
+  /// Project of the task or issue it was uploaded for: decides who may see it.
+  projectId  String
+  uploaderId String
+  mimeType   String
+  size       Int
+  data       Bytes
+  createdAt  DateTime @default(now())
+
+  comment Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([commentId])
+  @@index([uploaderId, createdAt])
 }
 
 model Activity {

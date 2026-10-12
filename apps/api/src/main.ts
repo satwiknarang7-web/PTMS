@@ -4,6 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
+import { raw } from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AppConfig } from './config/configuration';
@@ -16,6 +17,8 @@ async function bootstrap() {
   app.set('trust proxy', 1);
   app.use(helmet());
   app.use(cookieParser());
+  // Comment images are uploaded as raw bytes (the JSON body limit stays small everywhere else).
+  app.use(`/${appConfig.apiPrefix}/comments/images`, raw({ type: 'image/*', limit: '3mb' }));
   app.setGlobalPrefix(appConfig.apiPrefix);
   app.enableCors({ origin: appConfig.corsOrigins, credentials: true });
   app.useGlobalPipes(

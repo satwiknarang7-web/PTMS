@@ -46,6 +46,11 @@ function buildUrl(path: string, query?: Record<string, QueryValue>): string {
   return `${appConfig.apiBasePath}${normalizedPath}${search}`;
 }
 
+/** Address of an API resource for use in the page, e.g. an image's `src`. */
+export function apiUrl(path: string): string {
+  return buildUrl(path);
+}
+
 async function parseError(response: Response): Promise<ApiError> {
   let message = response.statusText || 'Request failed';
   let details: unknown;
@@ -81,12 +86,14 @@ function redirectToLogin(): void {
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, query, skipAuthRefresh, signal } = options;
+  // Files (e.g. images) are sent as they are; everything else as JSON.
+  const file = typeof Blob !== 'undefined' && body instanceof Blob;
   const init: RequestInit = {
     method,
     credentials: 'include',
     signal,
-    headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    headers: file ? { 'Content-Type': body.type || 'application/octet-stream' } : body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+    body: file ? body : body !== undefined ? JSON.stringify(body) : undefined,
   };
 
   let response = await fetch(buildUrl(path, query), init);
