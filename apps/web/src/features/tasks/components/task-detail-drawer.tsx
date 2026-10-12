@@ -2,7 +2,7 @@
 
 import { ChevronDown, Clock, Link2, MoreHorizontal, Plus, Trash2, X } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
-import { CommentThread } from '@/features/comments/components/comment-thread';
+import { CommentsPanel, CommentThread } from '@/features/comments/components/comment-thread';
 import { LookupSelect } from '@/features/lookups/components/lookup-select';
 import { useMilestones } from '@/features/milestones/api';
 import { useProject, useProjectMembers } from '@/features/projects/api';
@@ -40,6 +40,7 @@ export function TaskDetailDrawer({ taskId, onClose, onOpenTask }: Props) {
       onClose={onClose}
       title={task ? `${task.project.key}-${task.number}` : 'Task'}
       description={task && <span className="text-muted">{task.project.name}</span>}
+      aside={task && <CommentsPanel target={{ taskId: task.id }} />}
     >
       {isLoading ? (
         <Spinner />
@@ -288,9 +289,12 @@ function TaskDetailBody({ task, onClose, onOpenTask }: { task: TaskDetail; onClo
           </div>
         </Section>
 
-        <Section title="Comments" open={commentsOpen} onToggle={toggleComments}>
-          <CommentThread target={{ taskId: task.id }} />
-        </Section>
+        {/* Large screens show the comments in their own panel beside the drawer. */}
+        <div className="lg:hidden">
+          <Section title="Comments" open={commentsOpen} onToggle={toggleComments}>
+            <CommentThread target={{ taskId: task.id }} />
+          </Section>
+        </div>
       </div>
 
       <TaskFormModal open={addingSubtask} onClose={() => setAddingSubtask(false)} projectId={task.projectId} defaults={{ parentId: task.id, taskListId: task.taskListId ?? undefined }} />

@@ -74,6 +74,17 @@ export function useSendCoordinatorInvite() {
   });
 }
 
+/** Moves a person between member and project coordinator. */
+export function useChangeOrganizationRole() {
+  const invalidate = useInvalidatePlatform();
+  return useMutation({
+    mutationFn: ({ organizationId, userId, role }: { organizationId: string; userId: string; role: string }) =>
+      api.patch<PlatformOrganizationDetail>(`/platform/organizations/${organizationId}/users/${userId}/role`, { role }),
+    meta: { successMessage: 'Role updated' },
+    onSuccess: invalidate,
+  });
+}
+
 /** Permanently removes someone from an organization; their work goes to `transferTo` (or a coordinator). */
 export function useRemoveOrganizationUser() {
   const invalidate = useInvalidatePlatform();

@@ -2,7 +2,7 @@
 
 import { MoreHorizontal, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { CommentThread } from '@/features/comments/components/comment-thread';
+import { CommentsPanel, CommentThread } from '@/features/comments/components/comment-thread';
 import { LookupSelect } from '@/features/lookups/components/lookup-select';
 import { useMilestones } from '@/features/milestones/api';
 import { useProject, useProjectMembers } from '@/features/projects/api';
@@ -21,7 +21,13 @@ import { issueRef } from './issue-table';
 export function IssueDrawer({ issueId, onClose }: { issueId: string | null; onClose: () => void }) {
   const { data: issue, isLoading, isError, error } = useIssue(issueId);
   return (
-    <Drawer open={!!issueId} onClose={onClose} title={issue ? issueRef(issue) : 'Issue'} description={issue?.project.name}>
+    <Drawer
+      open={!!issueId}
+      onClose={onClose}
+      title={issue ? issueRef(issue) : 'Issue'}
+      description={issue?.project.name}
+      aside={issue && <CommentsPanel target={{ issueId: issue.id }} />}
+    >
       {isLoading ? <Spinner /> : isError || !issue ? <ErrorState message={errorMessage(error, 'Issue not found')} /> : <IssueBody key={issue.id} issue={issue} onClose={onClose} />}
     </Drawer>
   );
@@ -126,7 +132,8 @@ function IssueBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
         />
       </Field>
 
-      <section className="border-t border-border pt-4">
+      {/* Large screens show the comments in their own panel beside the drawer. */}
+      <section className="border-t border-border pt-4 lg:hidden">
         <h3 className="mb-3 text-sm font-semibold">Comments</h3>
         <CommentThread target={{ issueId: issue.id }} />
       </section>

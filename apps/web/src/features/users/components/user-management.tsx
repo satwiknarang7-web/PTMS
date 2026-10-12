@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Eye, KeyRound, Mail, Pencil, Plus, Search, Trash2, UserCheck, UserX } from 'lucide-react';
+import { ArrowUpDown, Eye, KeyRound, Mail, Pencil, Plus, Search, Trash2, UserCheck, UserX } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -167,6 +167,16 @@ export function UserManagement() {
                                   <DropdownItem onClick={() => { close(); setResetting(user); }}>
                                     <KeyRound /> Reset password
                                   </DropdownItem>
+                                  {canManageCoordinators && user.id !== session?.id && (
+                                    <DropdownItem
+                                      onClick={() => {
+                                        close();
+                                        update.mutate({ id: user.id, role: user.role === OrgRole.PROJECT_COORDINATOR ? OrgRole.MEMBER : OrgRole.PROJECT_COORDINATOR });
+                                      }}
+                                    >
+                                      <ArrowUpDown /> {user.role === OrgRole.PROJECT_COORDINATOR ? 'Make member' : 'Make project coordinator'}
+                                    </DropdownItem>
+                                  )}
                                   {user.isActive && (
                                     <DropdownItem onClick={() => { close(); invite.mutate(user.id); }}>
                                       <Mail /> {user.lastLoginAt ? 'Email password link' : 'Resend invitation'}

@@ -1,6 +1,6 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { OrgRole } from '../../common/constants/roles.constants';
+import { normalizeRole, ORG_ROLES, OrgRole } from '../../common/constants/roles.constants';
 import { PaginationService } from '../../common/pagination/pagination.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AccountLinksService } from '../users/account-links.service';
@@ -61,12 +61,16 @@ export class PlatformOrganizationsService {
       where: { id },
       include: {
         _count: { select: { users: true, projects: true } },
-        users: { where: { role: OrgRole.PROJECT_COORDINATOR }, select: { ...USER_SUMMARY_SELECT, isActive: true, lastLoginAt: true } },
+        users: {
+          orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+          select: { ...USER_SUMMARY_SELECT, role: true, jobTitle: true, isActive: true, lastLoginAt: true },
+        },
       },
     });
     if (!organization) throw new NotFoundException('Organization not found');
-    const { users: coordinators, ...rest } = organization;
-    return { ...rest, coordinators };
+    const { users: people, ...rest } = organization;
+    const coordinators = people.filter((person) => normalizeRole(person.role) === OrgRole.PROJECT_COORDINATOR);
+    return { ...rest, coordinators, people };
   }
 
   /** Creates an organization together with its first project coordinator (invited by email without a password). */
@@ -130,18 +134,27 @@ export class PlatformOrganizationsService {
     return this.findOne(id);
   }
 
-  /** Re-sends a coordinator's invitation email. */
+  /** Re-sends the invitation (or a set-password link) to anyone in the organization. */
   async resendCoordinatorInvite(id: string, userId: string, inviter: Inviter): Promise<void> {
     const user = await this.prisma.user.findFirst({
-      where: { id: userId, organizationId: id, role: OrgRole.PROJECT_COORDINATOR },
+      where: { id: userId, organizationId: id, isActive: true },
       include: { organization: { select: { name: true } } },
     });
-    if (!user) throw new NotFoundException('Coordinator not found');
+    if (!user) throw new NotFoundException('Person not found in this organization');
     await this.links.sendInvite(user, inviter.origin, inviter.name, user.organization?.name);
   }
 
   private passwordHashFor(password: string | undefined): Promise<string> {
     return password ? this.passwords.hash(password) : this.links.unusablePasswordHash();
+  }
+
+  /** Moves a person between member and project coordinator. Takes effect on their next request. */
+  async changeRole(id: string, userId: string, role: string) {
+    if (!(ORG_ROLES as readonly string[]).includes(role)) throw new BadRequestException('Unknown role');
+    const user = await this.prisma.user.findFirst({ where: { id: userId, organizationId: id }, select: { id: true } });
+    if (!user) throw new NotFoundException('Person not found in this organization');
+    await this.prisma.user.update({ where: { id: userId }, data: { role } });
+    return this.findOne(id);
   }
 
   async update(id: string, dto: UpdatePlatformOrganizationDto) {

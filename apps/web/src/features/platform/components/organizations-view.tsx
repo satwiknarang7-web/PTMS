@@ -3,6 +3,7 @@
 import { Building2, LogIn, Mail, MoreHorizontal, Pause, Play, Plus, Search, Trash2, UserPlus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { appConfig } from '@/shared/config/env';
+import { OrgRole, roleLabel } from '@/shared/constants/domain';
 import { useDebounce } from '@/shared/hooks/use-debounce';
 import { useQueryParam } from '@/shared/hooks/use-query-param';
 import { errorMessage } from '@/shared/lib/api-client';
@@ -14,12 +15,13 @@ import { Card } from '@/shared/ui/card';
 import { Disclosure } from '@/shared/ui/collapsible';
 import { EmptyState, ErrorState, Spinner } from '@/shared/ui/feedback';
 import { Dropdown, DropdownItem, DropdownSeparator } from '@/shared/ui/dropdown';
-import { Field, FormAlert, Input } from '@/shared/ui/form';
+import { Field, FormAlert, Input, Select } from '@/shared/ui/form';
 import { PageHeader, Pagination, Segmented, Toolbar } from '@/shared/ui/layout';
 import { ConfirmDialog, Drawer, Modal } from '@/shared/ui/modal';
 import { Table, Td, Th, Tr } from '@/shared/ui/table';
 import {
   useAddCoordinator,
+  useChangeOrganizationRole,
   useRemoveOrganizationUser,
   useSendCoordinatorInvite,
   useCreateOrganization,
@@ -145,7 +147,8 @@ function OrganizationDetails({ org, onDeleted }: { org: PlatformOrganizationDeta
   const remove = useDeletePlatformOrganization();
   const invite = useSendCoordinatorInvite();
   const removeUser = useRemoveOrganizationUser();
-  const [removing, setRemoving] = useState<PlatformOrganizationDetail['coordinators'][number] | null>(null);
+  const [removing, setRemoving] = useState<PlatformOrganizationDetail['people'][number] | null>(null);
+  const changeRole = useChangeOrganizationRole();
   const [name, setName] = useState(org.name);
   const [adding, setAdding] = useState(false);
   const [confirm, setConfirm] = useState<'suspend' | 'delete' | null>(null);
@@ -163,49 +166,65 @@ function OrganizationDetails({ org, onDeleted }: { org: PlatformOrganizationDeta
 
       <section>
         <div className="mb-2 flex items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold">Project coordinators</h3>
+          <h3 className="text-sm font-semibold">
+            People <span className="font-normal text-muted">· {org.people.length}</span>
+          </h3>
           <Button size="sm" variant="secondary" onClick={() => setAdding(true)}>
             <UserPlus /> Add coordinator
           </Button>
         </div>
-        {org.coordinators.length ? (
+        {!org.coordinators.length && (
+          <p className="mb-2 rounded-ui-lg border border-dashed border-border p-3 text-sm text-muted">No coordinator yet. Add one, or make someone below a project coordinator.</p>
+        )}
+        {org.people.length > 0 && (
           <ul className="divide-y divide-border rounded-ui-lg border border-border">
-            {org.coordinators.map((u) => (
-              <li key={u.id} className="flex items-center gap-3 px-3 py-2.5">
+            {org.people.map((u) => (
+              <li key={u.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5">
                 <Avatar user={u} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">{fullName(u)}</span>
-                  <span className="block truncate text-xs text-muted">{u.email}</span>
+                <span className="min-w-0 flex-1 basis-40">
+                  <span className="flex items-center gap-2 truncate text-sm font-medium">
+                    <span className="truncate">{fullName(u)}</span>
+                    {!u.isActive && <Badge tone="danger">Inactive</Badge>}
+                  </span>
+                  <span className="block truncate text-xs text-muted">
+                    {u.email} · last sign-in {formatDateTime(u.lastLoginAt)}
+                  </span>
                 </span>
-                {!u.isActive && <Badge tone="danger">Inactive</Badge>}
-                <span className="hidden text-xs text-muted sm:block">Last sign-in {formatDateTime(u.lastLoginAt)}</span>
-                {u.isActive && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    title={u.lastLoginAt ? 'Email a link to set a new password' : 'Resend invitation email'}
-                    aria-label={u.lastLoginAt ? 'Email password link' : 'Resend invitation'}
-                    loading={invite.isPending && invite.variables?.userId === u.id}
-                    onClick={() => invite.mutate({ organizationId: org.id, userId: u.id })}
-                  >
-                    <Mail />
+                <Select
+                  aria-label={`Role of ${fullName(u)}`}
+                  className="h-8 w-auto py-0 text-xs"
+                  value={u.role === OrgRole.PROJECT_COORDINATOR ? OrgRole.PROJECT_COORDINATOR : OrgRole.MEMBER}
+                  disabled={changeRole.isPending && changeRole.variables?.userId === u.id}
+                  onChange={(e) => changeRole.mutate({ organizationId: org.id, userId: u.id, role: e.target.value })}
+                >
+                  <option value={OrgRole.MEMBER}>{roleLabel(OrgRole.MEMBER)}</option>
+                  <option value={OrgRole.PROJECT_COORDINATOR}>{roleLabel(OrgRole.PROJECT_COORDINATOR)}</option>
+                </Select>
+                <span className="flex items-center">
+                  {u.isActive && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      title={u.lastLoginAt ? 'Email a link to set a new password' : 'Resend invitation email'}
+                      aria-label={u.lastLoginAt ? 'Email password link' : 'Resend invitation'}
+                      loading={invite.isPending && invite.variables?.userId === u.id}
+                      onClick={() => invite.mutate({ organizationId: org.id, userId: u.id })}
+                    >
+                      <Mail />
+                    </Button>
+                  )}
+                  <Button size="sm" variant="ghost" title="Remove from organization" aria-label={`Remove ${fullName(u)}`} onClick={() => setRemoving(u)}>
+                    <Trash2 className="text-danger" />
                   </Button>
-                )}
-                <Button size="sm" variant="ghost" title="Remove from organization" aria-label={`Remove ${fullName(u)}`} onClick={() => setRemoving(u)}>
-                  <Trash2 className="text-danger" />
-                </Button>
+                </span>
               </li>
             ))}
           </ul>
-        ) : (
-          <p className="rounded-ui-lg border border-dashed border-border p-4 text-sm text-muted">No coordinator yet. Add one so someone can run this organization.</p>
         )}
-        <p className="mt-2 text-xs text-muted">
-          To promote, deactivate or remove other people, open the workspace and use Settings → Users.
-        </p>
+        <p className="mt-2 text-xs text-muted">To edit details, deactivate or add members, open the workspace and use Settings → Users.</p>
         <RemovePersonDialog
           person={removing}
-          candidates={org.coordinators.filter((c) => c.isActive)}
+          candidates={org.people.filter((c) => c.isActive)}
           loading={removeUser.isPending}
           onClose={() => setRemoving(null)}
           onConfirm={(transferTo) =>

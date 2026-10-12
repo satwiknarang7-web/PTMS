@@ -88,7 +88,10 @@ export function Modal({ open, onClose, title, description, children, footer, cla
   );
 }
 
-export function Drawer({ open, onClose, title, description, children, footer, className }: OverlayProps) {
+export function Drawer({ open, onClose, title, description, children, footer, className, aside }: OverlayProps & {
+  /** Second column shown to the left of the drawer on large screens (e.g. a comments panel). */
+  aside?: ReactNode;
+}) {
   const panelRef = useOverlayBehavior(open, onClose);
   const titleId = useId();
   if (!open || typeof document === 'undefined') return null;
@@ -102,11 +105,14 @@ export function Drawer({ open, onClose, title, description, children, footer, cl
         aria-labelledby={titleId}
         tabIndex={-1}
         onMouseDown={(event) => event.stopPropagation()}
-        className={cn('flex h-full w-full max-w-2xl animate-slide-in-right flex-col border-l border-border bg-surface shadow-ui-lg outline-none', className)}
+        className="flex h-full w-full animate-slide-in-right justify-end shadow-ui-lg outline-none lg:w-auto"
       >
-        <OverlayHeader id={titleId} title={title} description={description} onClose={onClose} />
-        <div className="scrollbar-thin flex-1 overflow-y-auto px-5 py-5 sm:px-6">{children}</div>
-        {footer && <div className="flex justify-end gap-2 border-t border-border px-5 py-3.5 sm:px-6">{footer}</div>}
+        {aside && <aside className="hidden h-full w-80 shrink-0 flex-col border-l border-border bg-surface-muted lg:flex xl:w-96">{aside}</aside>}
+        <div className={cn('flex h-full w-full max-w-2xl flex-col border-l border-border bg-surface lg:w-[42rem]', className)}>
+          <OverlayHeader id={titleId} title={title} description={description} onClose={onClose} />
+          <div className="scrollbar-thin flex-1 overflow-y-auto px-5 py-5 sm:px-6">{children}</div>
+          {footer && <div className="flex justify-end gap-2 border-t border-border px-5 py-3.5 sm:px-6">{footer}</div>}
+        </div>
       </div>
     </div>,
     document.body,

@@ -8,6 +8,7 @@ import { Permission } from '../../common/constants/permissions.constants';
 import { PlatformOnly } from '../../common/decorators/account-scope.decorator';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import {
+  ChangeRoleDto,
   CreatePlatformOrganizationDto,
   InitialCoordinatorDto,
   PlatformOrganizationQueryDto,
@@ -60,6 +61,11 @@ export class PlatformOrganizationsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   removeUser(@Param('id') id: string, @Param('userId') userId: string, @Query() query: RemoveUserQueryDto, @CurrentUser() user: PlatformUser) {
     return this.users.remove(id, user.id, userId, query.transferTo);
+  }
+
+  @Patch(':id/users/:userId/role')
+  changeRole(@Param('id') id: string, @Param('userId') userId: string, @Body() dto: ChangeRoleDto) {
+    return this.organizations.changeRole(id, userId, dto.role);
   }
 
   @Patch(':id')

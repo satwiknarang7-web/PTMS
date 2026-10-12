@@ -10,8 +10,17 @@ export interface PlatformOrganization {
   _count: { users: number; projects: number };
 }
 
+export interface PlatformOrganizationPerson extends UserSummary {
+  role: string;
+  jobTitle: string | null;
+  isActive: boolean;
+  lastLoginAt: string | null;
+}
+
 export interface PlatformOrganizationDetail extends PlatformOrganization {
-  coordinators: (UserSummary & { isActive: boolean; lastLoginAt: string | null })[];
+  coordinators: PlatformOrganizationPerson[];
+  /** Everyone in the organization, coordinators included. */
+  people: PlatformOrganizationPerson[];
 }
 
 export interface PlatformOrganizationQuery {
